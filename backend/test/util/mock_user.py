@@ -13,13 +13,13 @@ def mock_webui_user(**kwargs):
 
 @contextmanager
 def mock_user(app: FastAPI, **kwargs):
-    from utils.utils import (
-        get_current_user,
-        get_verified_user,
-        get_admin_user,
-        get_current_user_by_api_key,
-    )
     from apps.webui.models.users import User
+    from utils.utils import (
+        get_admin_user,
+        get_current_user,
+        get_current_user_by_api_key,
+        get_verified_user,
+    )
 
     def create_user():
         user_parameters = {

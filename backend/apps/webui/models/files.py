@@ -1,15 +1,11 @@
-from pydantic import BaseModel, ConfigDict
-from typing import Union, Optional
-import time
 import logging
+import time
+from typing import List, Optional
 
-from sqlalchemy import Column, String, BigInteger, Text
-
-from apps.webui.internal.db import JSONField, Base, get_db
-
-import json
-
+from apps.webui.internal.db import Base, JSONField, get_db
 from config import SRC_LOG_LEVELS
+from pydantic import BaseModel, ConfigDict
+from sqlalchemy import BigInteger, Column, String, Text, delete, select
 
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["MODELS"])
@@ -59,10 +55,10 @@ class FileForm(BaseModel):
 
 
 class FilesTable:
-
-    def insert_new_file(self, user_id: str, form_data: FileForm) -> Optional[FileModel]:
-        with get_db() as db:
-
+    async def insert_new_file(
+        self, user_id: str, form_data: FileForm
+    ) -> Optional[FileModel]:
+        async with get_db() as db:
             file = FileModel(
                 **{
                     **form_data.model_dump(),
@@ -70,57 +66,36 @@ class FilesTable:
                     "created_at": int(time.time()),
                 }
             )
+            result = File(**file.model_dump())
+            db.add(result)
+            await db.commit()
+            await db.refresh(result)
+            if result:
+                return FileModel.model_validate(result)
 
-            try:
-                result = File(**file.model_dump())
-                db.add(result)
-                db.commit()
-                db.refresh(result)
-                if result:
-                    return FileModel.model_validate(result)
-                else:
-                    return None
-            except Exception as e:
-                print(f"Error creating tool: {e}")
-                return None
+    async def get_file_by_id(self, id: str) -> Optional[FileModel]:
+        async with get_db() as db:
+            file = await db.get(File, id)
+            return FileModel.model_validate(file)
 
-    def get_file_by_id(self, id: str) -> Optional[FileModel]:
-        with get_db() as db:
+    async def get_files(self) -> List[FileModel]:
+        async with get_db() as db:
+            files = await db.execute(select(File))
+            return [FileModel.model_validate(file) for file in files.scalars().all()]
 
-            try:
-                file = db.get(File, id)
-                return FileModel.model_validate(file)
-            except Exception:
-                return None
+    async def delete_file_by_id(self, id: str) -> bool:
+        async with get_db() as db:
+            await db.execute(delete(File).where(File.id == id))
+            await db.commit()
 
-    def get_files(self) -> list[FileModel]:
-        with get_db() as db:
+            return True
 
-            return [FileModel.model_validate(file) for file in db.query(File).all()]
+    async def delete_all_files(self) -> bool:
+        async with get_db() as db:
+            await db.execute(delete(File))
+            await db.commit()
 
-    def delete_file_by_id(self, id: str) -> bool:
-
-        with get_db() as db:
-
-            try:
-                db.query(File).filter_by(id=id).delete()
-                db.commit()
-
-                return True
-            except Exception:
-                return False
-
-    def delete_all_files(self) -> bool:
-
-        with get_db() as db:
-
-            try:
-                db.query(File).delete()
-                db.commit()
-
-                return True
-            except Exception:
-                return False
+            return True
 
 
 Files = FilesTable()

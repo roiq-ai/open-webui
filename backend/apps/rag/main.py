@@ -1,138 +1,112 @@
-from fastapi import (
-    FastAPI,
-    Depends,
-    HTTPException,
-    status,
-    UploadFile,
-    File,
-    Form,
-)
-from fastapi.middleware.cors import CORSMiddleware
-import requests
-import os, shutil, logging, re
-from datetime import datetime
-
-from pathlib import Path
-from typing import Union, Sequence, Iterator, Any
-
-from chromadb.utils.batch_utils import create_batches
-from langchain_core.documents import Document
-
-from langchain_community.document_loaders import (
-    WebBaseLoader,
-    TextLoader,
-    PyPDFLoader,
-    CSVLoader,
-    BSHTMLLoader,
-    Docx2txtLoader,
-    UnstructuredEPubLoader,
-    UnstructuredWordDocumentLoader,
-    UnstructuredMarkdownLoader,
-    UnstructuredXMLLoader,
-    UnstructuredRSTLoader,
-    UnstructuredExcelLoader,
-    UnstructuredPowerPointLoader,
-    YoutubeLoader,
-    OutlookMessageLoader,
-)
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-
-import validators
-import urllib.parse
-import socket
-
-
-from pydantic import BaseModel
-from typing import Optional
-import mimetypes
-import uuid
 import json
+import logging
+import mimetypes
+import os
+import shutil
+import socket
+import urllib.parse
+import uuid
+from datetime import datetime
+from pathlib import Path
+from typing import Iterator, List, Optional, Sequence, Union
 
-from apps.webui.models.documents import (
-    Documents,
-    DocumentForm,
-    DocumentResponse,
-)
-from apps.webui.models.files import (
-    Files,
-)
-
-from apps.rag.utils import (
-    get_model_path,
-    get_embedding_function,
-    query_doc,
-    query_doc_with_hybrid_search,
-    query_collection,
-    query_collection_with_hybrid_search,
-)
-
+import requests
+import validators
 from apps.rag.search.brave import search_brave
+from apps.rag.search.duckduckgo import search_duckduckgo
 from apps.rag.search.google_pse import search_google_pse
+from apps.rag.search.jina_search import search_jina
 from apps.rag.search.main import SearchResult
 from apps.rag.search.searxng import search_searxng
 from apps.rag.search.serper import search_serper
-from apps.rag.search.serpstack import search_serpstack
 from apps.rag.search.serply import search_serply
-from apps.rag.search.duckduckgo import search_duckduckgo
+from apps.rag.search.serpstack import search_serpstack
 from apps.rag.search.tavily import search_tavily
-from apps.rag.search.jina_search import search_jina
-
-from utils.misc import (
-    calculate_sha256,
-    calculate_sha256_string,
-    sanitize_filename,
-    extract_folders_after_data_docs,
+from apps.rag.utils import (
+    get_embedding_function,
+    get_model_path,
+    query_collection,
+    query_collection_with_hybrid_search,
+    query_doc,
+    query_doc_with_hybrid_search,
 )
-from utils.utils import get_verified_user, get_admin_user
-
+from apps.webui.models.documents import DocumentForm, Documents
+from apps.webui.models.files import Files
+from chromadb.utils.batch_utils import create_batches
 from config import (
-    AppConfig,
-    ENV,
-    SRC_LOG_LEVELS,
-    UPLOAD_DIR,
-    DOCS_DIR,
+    BRAVE_SEARCH_API_KEY,
+    CHROMA_CLIENT,
+    CHUNK_OVERLAP,
+    CHUNK_SIZE,
     CONTENT_EXTRACTION_ENGINE,
-    TIKA_SERVER_URL,
-    RAG_TOP_K,
-    RAG_RELEVANCE_THRESHOLD,
+    DEVICE_TYPE,
+    DOCS_DIR,
+    ENABLE_RAG_HYBRID_SEARCH,
+    ENABLE_RAG_LOCAL_WEB_FETCH,
+    ENABLE_RAG_WEB_LOADER_SSL_VERIFICATION,
+    ENABLE_RAG_WEB_SEARCH,
+    ENV,
+    GOOGLE_PSE_API_KEY,
+    GOOGLE_PSE_ENGINE_ID,
+    PDF_EXTRACT_IMAGES,
     RAG_EMBEDDING_ENGINE,
     RAG_EMBEDDING_MODEL,
     RAG_EMBEDDING_MODEL_AUTO_UPDATE,
     RAG_EMBEDDING_MODEL_TRUST_REMOTE_CODE,
-    ENABLE_RAG_HYBRID_SEARCH,
-    ENABLE_RAG_WEB_LOADER_SSL_VERIFICATION,
-    RAG_RERANKING_MODEL,
-    PDF_EXTRACT_IMAGES,
-    RAG_RERANKING_MODEL_AUTO_UPDATE,
-    RAG_RERANKING_MODEL_TRUST_REMOTE_CODE,
+    RAG_EMBEDDING_OPENAI_BATCH_SIZE,
     RAG_OPENAI_API_BASE_URL,
     RAG_OPENAI_API_KEY,
-    DEVICE_TYPE,
-    CHROMA_CLIENT,
-    CHUNK_SIZE,
-    CHUNK_OVERLAP,
+    RAG_RELEVANCE_THRESHOLD,
+    RAG_RERANKING_MODEL,
+    RAG_RERANKING_MODEL_AUTO_UPDATE,
+    RAG_RERANKING_MODEL_TRUST_REMOTE_CODE,
     RAG_TEMPLATE,
-    ENABLE_RAG_LOCAL_WEB_FETCH,
-    YOUTUBE_LOADER_LANGUAGE,
-    ENABLE_RAG_WEB_SEARCH,
-    RAG_WEB_SEARCH_ENGINE,
+    RAG_TOP_K,
+    RAG_WEB_SEARCH_CONCURRENT_REQUESTS,
     RAG_WEB_SEARCH_DOMAIN_FILTER_LIST,
+    RAG_WEB_SEARCH_ENGINE,
+    RAG_WEB_SEARCH_RESULT_COUNT,
     SEARXNG_QUERY_URL,
-    GOOGLE_PSE_API_KEY,
-    GOOGLE_PSE_ENGINE_ID,
-    BRAVE_SEARCH_API_KEY,
-    SERPSTACK_API_KEY,
-    SERPSTACK_HTTPS,
     SERPER_API_KEY,
     SERPLY_API_KEY,
+    SERPSTACK_API_KEY,
+    SERPSTACK_HTTPS,
+    SRC_LOG_LEVELS,
     TAVILY_API_KEY,
-    RAG_WEB_SEARCH_RESULT_COUNT,
-    RAG_WEB_SEARCH_CONCURRENT_REQUESTS,
-    RAG_EMBEDDING_OPENAI_BATCH_SIZE,
-    CORS_ALLOW_ORIGIN,
+    TIKA_SERVER_URL,
+    UPLOAD_DIR,
+    YOUTUBE_LOADER_LANGUAGE,
+    AppConfig,
 )
-
 from constants import ERROR_MESSAGES
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, status
+from fastapi.middleware.cors import CORSMiddleware
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.document_loaders import (
+    BSHTMLLoader,
+    CSVLoader,
+    Docx2txtLoader,
+    OutlookMessageLoader,
+    PyPDFLoader,
+    TextLoader,
+    UnstructuredEPubLoader,
+    UnstructuredExcelLoader,
+    UnstructuredMarkdownLoader,
+    UnstructuredPowerPointLoader,
+    UnstructuredRSTLoader,
+    UnstructuredXMLLoader,
+    WebBaseLoader,
+    YoutubeLoader,
+)
+from langchain_core.documents import Document
+from pydantic import BaseModel
+from utils.misc import (
+    calculate_sha256,
+    calculate_sha256_string,
+    extract_folders_after_data_docs,
+    sanitize_filename,
+)
+from utils.utils import get_admin_user, get_verified_user
 
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["RAG"])
@@ -241,9 +215,12 @@ app.state.EMBEDDING_FUNCTION = get_embedding_function(
     app.state.config.RAG_EMBEDDING_OPENAI_BATCH_SIZE,
 )
 
+origins = ["*"]
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=CORS_ALLOW_ORIGIN,
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -374,7 +351,7 @@ async def update_reranking_config(
     try:
         app.state.config.RAG_RERANKING_MODEL = form_data.reranking_model
 
-        update_reranking_model(app.state.config.RAG_RERANKING_MODEL, True)
+        update_reranking_model(app.state.config.RAG_RERANKING_MODEL), True
 
         return {
             "status": True,
@@ -437,7 +414,7 @@ class ChunkParamUpdateForm(BaseModel):
 
 
 class YoutubeLoaderConfig(BaseModel):
-    language: list[str]
+    language: List[str]
     translation: Optional[str] = None
 
 
@@ -640,7 +617,7 @@ def query_doc_handler(
 
 
 class QueryCollectionsForm(BaseModel):
-    collection_names: list[str]
+    collection_names: List[str]
     query: str
     k: Optional[int] = None
     r: Optional[float] = None
@@ -931,7 +908,6 @@ def store_web_search(form_data: SearchForm, user=Depends(get_verified_user)):
 def store_data_in_vector_db(
     data, collection_name, metadata: Optional[dict] = None, overwrite: bool = False
 ) -> bool:
-
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=app.state.config.CHUNK_SIZE,
         chunk_overlap=app.state.config.CHUNK_OVERLAP,
@@ -1019,7 +995,7 @@ class TikaLoader:
         self.file_path = file_path
         self.mime_type = mime_type
 
-    def load(self) -> list[Document]:
+    def load(self) -> List[Document]:
         with open(self.file_path, "rb") as f:
             data = f.read()
 
@@ -1097,13 +1073,6 @@ def get_loader(filename: str, file_content_type: str, file_path: str):
         "vue",
         "svelte",
         "msg",
-        "ex",
-        "exs",
-        "erl",
-        "tsx",
-        "jsx",
-        "hs",
-        "lhs",
     ]
 
     if (
@@ -1183,7 +1152,7 @@ def store_doc(
             f.close()
 
         f = open(file_path, "rb")
-        if collection_name is None:
+        if collection_name == None:
             collection_name = calculate_sha256(f)[:63]
         f.close()
 
@@ -1236,7 +1205,7 @@ def process_doc(
         f = open(file_path, "rb")
 
         collection_name = form_data.collection_name
-        if collection_name is None:
+        if collection_name == None:
             collection_name = calculate_sha256(f)[:63]
         f.close()
 
@@ -1292,9 +1261,8 @@ def store_text(
     form_data: TextRAGForm,
     user=Depends(get_verified_user),
 ):
-
     collection_name = form_data.collection_name
-    if collection_name is None:
+    if collection_name == None:
         collection_name = calculate_sha256_string(form_data.content)
 
     result = store_text_in_vector_db(
@@ -1337,7 +1305,7 @@ def scan_docs_dir(user=Depends(get_admin_user)):
                         sanitized_filename = sanitize_filename(filename)
                         doc = Documents.get_doc_by_name(sanitized_filename)
 
-                        if doc is None:
+                        if doc == None:
                             doc = Documents.insert_new_doc(
                                 user.id,
                                 DocumentForm(
@@ -1365,7 +1333,6 @@ def scan_docs_dir(user=Depends(get_admin_user)):
                             )
                 except Exception as e:
                     log.exception(e)
-                    pass
 
         except Exception as e:
             log.exception(e)

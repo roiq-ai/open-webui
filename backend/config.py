@@ -1,26 +1,21 @@
-import os
-import sys
-import logging
 import importlib.metadata
+import json
+import logging
+import os
 import pkgutil
-from urllib.parse import urlparse
+import shutil
+import sys
+from pathlib import Path
+from typing import Generic, Optional, TypeVar
 
 import chromadb
-from chromadb import Settings
-from bs4 import BeautifulSoup
-from typing import TypeVar, Generic
-from pydantic import BaseModel
-from typing import Optional
-
-from pathlib import Path
-import json
-import yaml
-
 import markdown
 import requests
-import shutil
-
+import yaml
+from bs4 import BeautifulSoup
+from chromadb import Settings
 from constants import ERROR_MESSAGES
+from pydantic import BaseModel
 
 ####################################
 # Load .env file
@@ -32,7 +27,7 @@ BASE_DIR = BACKEND_DIR.parent  # the path containing the backend/
 print(BASE_DIR)
 
 try:
-    from dotenv import load_dotenv, find_dotenv
+    from dotenv import find_dotenv, load_dotenv
 
     load_dotenv(find_dotenv(str(BASE_DIR / ".env")))
 except ImportError:
@@ -79,16 +74,6 @@ for source in log_sources:
 
 log.setLevel(SRC_LOG_LEVELS["CONFIG"])
 
-
-class EndpointFilter(logging.Filter):
-    def filter(self, record: logging.LogRecord) -> bool:
-        return record.getMessage().find("/health") == -1
-
-
-# Filter out /endpoint
-logging.getLogger("uvicorn.access").addFilter(EndpointFilter())
-
-
 WEBUI_NAME = os.environ.get("WEBUI_NAME", "Open WebUI")
 if WEBUI_NAME != "Open WebUI":
     WEBUI_NAME += " (Open WebUI)"
@@ -106,7 +91,7 @@ ENV = os.environ.get("ENV", "dev")
 
 try:
     PACKAGE_DATA = json.loads((BASE_DIR / "package.json").read_text())
-except Exception:
+except:
     try:
         PACKAGE_DATA = {"version": importlib.metadata.version("open-webui")}
     except importlib.metadata.PackageNotFoundError:
@@ -139,7 +124,7 @@ try:
     with open(str(changelog_path.absolute()), "r", encoding="utf8") as file:
         changelog_content = file.read()
 
-except Exception:
+except:
     changelog_content = (pkgutil.get_data("open_webui", "CHANGELOG.md") or b"").decode()
 
 
@@ -176,6 +161,7 @@ for version in soup.find_all("h2"):
 
 CHANGELOG = changelog_json
 
+
 ####################################
 # SAFE_MODE
 ####################################
@@ -203,12 +189,12 @@ if RESET_CONFIG_ON_START:
         os.remove(f"{DATA_DIR}/config.json")
         with open(f"{DATA_DIR}/config.json", "w") as f:
             f.write("{}")
-    except Exception:
+    except:
         pass
 
 try:
     CONFIG_DATA = json.loads((DATA_DIR / "config.json").read_text())
-except Exception:
+except:
     CONFIG_DATA = {}
 
 
@@ -350,12 +336,6 @@ GOOGLE_OAUTH_SCOPE = PersistentConfig(
     os.environ.get("GOOGLE_OAUTH_SCOPE", "openid email profile"),
 )
 
-GOOGLE_REDIRECT_URI = PersistentConfig(
-    "GOOGLE_REDIRECT_URI",
-    "oauth.google.redirect_uri",
-    os.environ.get("GOOGLE_REDIRECT_URI", ""),
-)
-
 MICROSOFT_CLIENT_ID = PersistentConfig(
     "MICROSOFT_CLIENT_ID",
     "oauth.microsoft.client_id",
@@ -380,12 +360,6 @@ MICROSOFT_OAUTH_SCOPE = PersistentConfig(
     os.environ.get("MICROSOFT_OAUTH_SCOPE", "openid email profile"),
 )
 
-MICROSOFT_REDIRECT_URI = PersistentConfig(
-    "MICROSOFT_REDIRECT_URI",
-    "oauth.microsoft.redirect_uri",
-    os.environ.get("MICROSOFT_REDIRECT_URI", ""),
-)
-
 OAUTH_CLIENT_ID = PersistentConfig(
     "OAUTH_CLIENT_ID",
     "oauth.oidc.client_id",
@@ -402,12 +376,6 @@ OPENID_PROVIDER_URL = PersistentConfig(
     "OPENID_PROVIDER_URL",
     "oauth.oidc.provider_url",
     os.environ.get("OPENID_PROVIDER_URL", ""),
-)
-
-OPENID_REDIRECT_URI = PersistentConfig(
-    "OPENID_REDIRECT_URI",
-    "oauth.oidc.redirect_uri",
-    os.environ.get("OPENID_REDIRECT_URI", ""),
 )
 
 OAUTH_SCOPES = PersistentConfig(
@@ -434,12 +402,6 @@ OAUTH_PICTURE_CLAIM = PersistentConfig(
     os.environ.get("OAUTH_PICTURE_CLAIM", "picture"),
 )
 
-OAUTH_EMAIL_CLAIM = PersistentConfig(
-    "OAUTH_EMAIL_CLAIM",
-    "oauth.oidc.email_claim",
-    os.environ.get("OAUTH_EMAIL_CLAIM", "email"),
-)
-
 
 def load_oauth_providers():
     OAUTH_PROVIDERS.clear()
@@ -449,7 +411,6 @@ def load_oauth_providers():
             "client_secret": GOOGLE_CLIENT_SECRET.value,
             "server_metadata_url": "https://accounts.google.com/.well-known/openid-configuration",
             "scope": GOOGLE_OAUTH_SCOPE.value,
-            "redirect_uri": GOOGLE_REDIRECT_URI.value,
         }
 
     if (
@@ -462,7 +423,6 @@ def load_oauth_providers():
             "client_secret": MICROSOFT_CLIENT_SECRET.value,
             "server_metadata_url": f"https://login.microsoftonline.com/{MICROSOFT_CLIENT_TENANT_ID.value}/v2.0/.well-known/openid-configuration",
             "scope": MICROSOFT_OAUTH_SCOPE.value,
-            "redirect_uri": MICROSOFT_REDIRECT_URI.value,
         }
 
     if (
@@ -476,7 +436,6 @@ def load_oauth_providers():
             "server_metadata_url": OPENID_PROVIDER_URL.value,
             "scope": OAUTH_SCOPES.value,
             "name": OAUTH_PROVIDER_NAME.value,
-            "redirect_uri": OPENID_REDIRECT_URI.value,
         }
 
 
@@ -549,7 +508,6 @@ if CUSTOM_NAME:
             WEBUI_NAME = data["name"]
     except Exception as e:
         log.exception(e)
-        pass
 
 
 ####################################
@@ -648,7 +606,7 @@ if AIOHTTP_CLIENT_TIMEOUT == "":
 else:
     try:
         AIOHTTP_CLIENT_TIMEOUT = int(AIOHTTP_CLIENT_TIMEOUT)
-    except Exception:
+    except:
         AIOHTTP_CLIENT_TIMEOUT = 300
 
 
@@ -728,7 +686,7 @@ try:
     OPENAI_API_KEY = OPENAI_API_KEYS.value[
         OPENAI_API_BASE_URLS.value.index("https://api.openai.com/v1")
     ]
-except Exception:
+except:
     pass
 
 OPENAI_API_BASE_URL = "https://api.openai.com/v1"
@@ -745,12 +703,6 @@ ENABLE_SIGNUP = PersistentConfig(
         if not WEBUI_AUTH
         else os.environ.get("ENABLE_SIGNUP", "True").lower() == "true"
     ),
-)
-
-ENABLE_LOGIN_FORM = PersistentConfig(
-    "ENABLE_LOGIN_FORM",
-    "ui.ENABLE_LOGIN_FORM",
-    os.environ.get("ENABLE_LOGIN_FORM", "True").lower() == "true",
 )
 
 DEFAULT_LOCALE = PersistentConfig(
@@ -807,24 +759,10 @@ USER_PERMISSIONS_CHAT_DELETION = (
     os.environ.get("USER_PERMISSIONS_CHAT_DELETION", "True").lower() == "true"
 )
 
-USER_PERMISSIONS_CHAT_EDITING = (
-    os.environ.get("USER_PERMISSIONS_CHAT_EDITING", "True").lower() == "true"
-)
-
-USER_PERMISSIONS_CHAT_TEMPORARY = (
-    os.environ.get("USER_PERMISSIONS_CHAT_TEMPORARY", "True").lower() == "true"
-)
-
 USER_PERMISSIONS = PersistentConfig(
     "USER_PERMISSIONS",
     "ui.user_permissions",
-    {
-        "chat": {
-            "deletion": USER_PERMISSIONS_CHAT_DELETION,
-            "editing": USER_PERMISSIONS_CHAT_EDITING,
-            "temporary": USER_PERMISSIONS_CHAT_TEMPORARY,
-        }
-    },
+    {"chat": {"deletion": USER_PERMISSIONS_CHAT_DELETION}},
 )
 
 ENABLE_MODEL_FILTER = PersistentConfig(
@@ -845,56 +783,11 @@ WEBHOOK_URL = PersistentConfig(
 
 ENABLE_ADMIN_EXPORT = os.environ.get("ENABLE_ADMIN_EXPORT", "True").lower() == "true"
 
-ENABLE_ADMIN_CHAT_ACCESS = (
-    os.environ.get("ENABLE_ADMIN_CHAT_ACCESS", "True").lower() == "true"
-)
-
 ENABLE_COMMUNITY_SHARING = PersistentConfig(
     "ENABLE_COMMUNITY_SHARING",
     "ui.enable_community_sharing",
     os.environ.get("ENABLE_COMMUNITY_SHARING", "True").lower() == "true",
 )
-
-ENABLE_MESSAGE_RATING = PersistentConfig(
-    "ENABLE_MESSAGE_RATING",
-    "ui.enable_message_rating",
-    os.environ.get("ENABLE_MESSAGE_RATING", "True").lower() == "true",
-)
-
-
-def validate_cors_origins(origins):
-    for origin in origins:
-        if origin != "*":
-            validate_cors_origin(origin)
-
-
-def validate_cors_origin(origin):
-    parsed_url = urlparse(origin)
-
-    # Check if the scheme is either http or https
-    if parsed_url.scheme not in ["http", "https"]:
-        raise ValueError(
-            f"Invalid scheme in CORS_ALLOW_ORIGIN: '{origin}'. Only 'http' and 'https' are allowed."
-        )
-
-    # Ensure that the netloc (domain + port) is present, indicating it's a valid URL
-    if not parsed_url.netloc:
-        raise ValueError(f"Invalid URL structure in CORS_ALLOW_ORIGIN: '{origin}'.")
-
-
-# For production, you should only need one host as
-# fastapi serves the svelte-kit built frontend and backend from the same host and port.
-# To test CORS_ALLOW_ORIGIN locally, you can set something like
-# CORS_ALLOW_ORIGIN=http://localhost:5173;http://localhost:8080
-# in your .env file depending on your frontend port, 5173 in this case.
-CORS_ALLOW_ORIGIN = os.environ.get("CORS_ALLOW_ORIGIN", "*").split(";")
-
-if "*" in CORS_ALLOW_ORIGIN:
-    log.warning(
-        "\n\nWARNING: CORS_ALLOW_ORIGIN IS SET TO '*' - NOT RECOMMENDED FOR PRODUCTION DEPLOYMENTS.\n"
-    )
-
-validate_cors_origins(CORS_ALLOW_ORIGIN)
 
 
 class BannerModel(BaseModel):
@@ -951,7 +844,10 @@ TITLE_GENERATION_PROMPT_TEMPLATE = PersistentConfig(
     "task.title.prompt_template",
     os.environ.get(
         "TITLE_GENERATION_PROMPT_TEMPLATE",
-        """Create a concise, 3-5 word title with an emoji as a title for the prompt in the given language. Suitable Emojis for the summary can be used to enhance understanding but avoid quotation marks or special formatting. RESPOND ONLY WITH THE TITLE TEXT.
+        """Here is the query:
+{{prompt:middletruncate:8000}}
+
+Create a concise, 3-5 word phrase with an emoji as a title for the previous query. Suitable Emojis for the summary can be used to enhance understanding but avoid quotation marks or special formatting. RESPOND ONLY WITH THE TITLE TEXT.
 
 Examples of titles:
 📉 Stock Market Trends
@@ -959,9 +855,7 @@ Examples of titles:
 Evolution of Music Streaming
 Remote Work Productivity Tips
 Artificial Intelligence in Healthcare
-🎮 Video Game Development Insights
-
-Prompt: {{prompt:middletruncate:8000}}""",
+🎮 Video Game Development Insights""",
     ),
 )
 
@@ -994,7 +888,8 @@ TOOLS_FUNCTION_CALLING_PROMPT_TEMPLATE = PersistentConfig(
     "task.tools.prompt_template",
     os.environ.get(
         "TOOLS_FUNCTION_CALLING_PROMPT_TEMPLATE",
-        """Available Tools: {{TOOLS}}\nReturn an empty string if no tools match the query. If a function tool matches, construct and return a JSON object in the format {\"name\": \"functionName\", \"parameters\": {\"requiredFunctionParamKey\": \"requiredFunctionParamValue\"}} using the appropriate tool and its parameters. Only return the object and limit the response to the JSON object without additional text.""",
+        """Tools: {{TOOLS}}
+If a function tool doesn't match the query, return an empty string. Else, pick a function tool, fill in the parameters from the function tool's schema, and return it in the format { "name": \"functionName\", "parameters": { "key": "value" } }. Only pick a function if the user asks.  Only return the object. Do not return any other text.""",
     ),
 )
 
@@ -1020,8 +915,6 @@ WEBUI_SESSION_COOKIE_SECURE = os.environ.get(
     os.environ.get("WEBUI_SESSION_COOKIE_SECURE", "false").lower() == "true",
 )
 
-if WEBUI_AUTH and WEBUI_SECRET_KEY == "":
-    raise ValueError(ERROR_MESSAGES.ENV_VAR_NOT_FOUND)
 
 ####################################
 # RAG document content extraction
@@ -1097,7 +990,7 @@ RAG_EMBEDDING_MODEL = PersistentConfig(
     "rag.embedding_model",
     os.environ.get("RAG_EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2"),
 )
-log.info(f"Embedding model set: {RAG_EMBEDDING_MODEL.value}")
+(log.info(f"Embedding model set: {RAG_EMBEDDING_MODEL.value}"),)
 
 RAG_EMBEDDING_MODEL_AUTO_UPDATE = (
     os.environ.get("RAG_EMBEDDING_MODEL_AUTO_UPDATE", "").lower() == "true"
@@ -1110,7 +1003,7 @@ RAG_EMBEDDING_MODEL_TRUST_REMOTE_CODE = (
 RAG_EMBEDDING_OPENAI_BATCH_SIZE = PersistentConfig(
     "RAG_EMBEDDING_OPENAI_BATCH_SIZE",
     "rag.embedding_openai_batch_size",
-    int(os.environ.get("RAG_EMBEDDING_OPENAI_BATCH_SIZE", "1")),
+    os.environ.get("RAG_EMBEDDING_OPENAI_BATCH_SIZE", 1),
 )
 
 RAG_RERANKING_MODEL = PersistentConfig(
@@ -1119,7 +1012,7 @@ RAG_RERANKING_MODEL = PersistentConfig(
     os.environ.get("RAG_RERANKING_MODEL", ""),
 )
 if RAG_RERANKING_MODEL.value != "":
-    log.info(f"Reranking model set: {RAG_RERANKING_MODEL.value}")
+    (log.info(f"Reranking model set: {RAG_RERANKING_MODEL.value}"),)
 
 RAG_RERANKING_MODEL_AUTO_UPDATE = (
     os.environ.get("RAG_RERANKING_MODEL_AUTO_UPDATE", "").lower() == "true"
@@ -1317,7 +1210,7 @@ WHISPER_MODEL_AUTO_UPDATE = (
 IMAGE_GENERATION_ENGINE = PersistentConfig(
     "IMAGE_GENERATION_ENGINE",
     "image_generation.engine",
-    os.getenv("IMAGE_GENERATION_ENGINE", "openai"),
+    os.getenv("IMAGE_GENERATION_ENGINE", ""),
 )
 
 ENABLE_IMAGE_GENERATION = PersistentConfig(
@@ -1342,127 +1235,28 @@ COMFYUI_BASE_URL = PersistentConfig(
     os.getenv("COMFYUI_BASE_URL", ""),
 )
 
-COMFYUI_DEFAULT_WORKFLOW = """
-{
-  "3": {
-    "inputs": {
-      "seed": 0,
-      "steps": 20,
-      "cfg": 8,
-      "sampler_name": "euler",
-      "scheduler": "normal",
-      "denoise": 1,
-      "model": [
-        "4",
-        0
-      ],
-      "positive": [
-        "6",
-        0
-      ],
-      "negative": [
-        "7",
-        0
-      ],
-      "latent_image": [
-        "5",
-        0
-      ]
-    },
-    "class_type": "KSampler",
-    "_meta": {
-      "title": "KSampler"
-    }
-  },
-  "4": {
-    "inputs": {
-      "ckpt_name": "model.safetensors"
-    },
-    "class_type": "CheckpointLoaderSimple",
-    "_meta": {
-      "title": "Load Checkpoint"
-    }
-  },
-  "5": {
-    "inputs": {
-      "width": 512,
-      "height": 512,
-      "batch_size": 1
-    },
-    "class_type": "EmptyLatentImage",
-    "_meta": {
-      "title": "Empty Latent Image"
-    }
-  },
-  "6": {
-    "inputs": {
-      "text": "Prompt",
-      "clip": [
-        "4",
-        1
-      ]
-    },
-    "class_type": "CLIPTextEncode",
-    "_meta": {
-      "title": "CLIP Text Encode (Prompt)"
-    }
-  },
-  "7": {
-    "inputs": {
-      "text": "",
-      "clip": [
-        "4",
-        1
-      ]
-    },
-    "class_type": "CLIPTextEncode",
-    "_meta": {
-      "title": "CLIP Text Encode (Prompt)"
-    }
-  },
-  "8": {
-    "inputs": {
-      "samples": [
-        "3",
-        0
-      ],
-      "vae": [
-        "4",
-        2
-      ]
-    },
-    "class_type": "VAEDecode",
-    "_meta": {
-      "title": "VAE Decode"
-    }
-  },
-  "9": {
-    "inputs": {
-      "filename_prefix": "ComfyUI",
-      "images": [
-        "8",
-        0
-      ]
-    },
-    "class_type": "SaveImage",
-    "_meta": {
-      "title": "Save Image"
-    }
-  }
-}
-"""
-
-
-COMFYUI_WORKFLOW = PersistentConfig(
-    "COMFYUI_WORKFLOW",
-    "image_generation.comfyui.workflow",
-    os.getenv("COMFYUI_WORKFLOW", COMFYUI_DEFAULT_WORKFLOW),
+COMFYUI_CFG_SCALE = PersistentConfig(
+    "COMFYUI_CFG_SCALE",
+    "image_generation.comfyui.cfg_scale",
+    os.getenv("COMFYUI_CFG_SCALE", ""),
 )
 
-COMFYUI_WORKFLOW_NODES = PersistentConfig(
-    "COMFYUI_WORKFLOW",
-    "image_generation.comfyui.nodes",
-    [],
+COMFYUI_SAMPLER = PersistentConfig(
+    "COMFYUI_SAMPLER",
+    "image_generation.comfyui.sampler",
+    os.getenv("COMFYUI_SAMPLER", ""),
+)
+
+COMFYUI_SCHEDULER = PersistentConfig(
+    "COMFYUI_SCHEDULER",
+    "image_generation.comfyui.scheduler",
+    os.getenv("COMFYUI_SCHEDULER", ""),
+)
+
+COMFYUI_SD3 = PersistentConfig(
+    "COMFYUI_SD3",
+    "image_generation.comfyui.sd3",
+    os.environ.get("COMFYUI_SD3", "").lower() == "true",
 )
 
 IMAGES_OPENAI_API_BASE_URL = PersistentConfig(
@@ -1529,11 +1323,6 @@ AUDIO_TTS_OPENAI_API_KEY = PersistentConfig(
     os.getenv("AUDIO_TTS_OPENAI_API_KEY", OPENAI_API_KEY),
 )
 
-AUDIO_TTS_API_KEY = PersistentConfig(
-    "AUDIO_TTS_API_KEY",
-    "audio.tts.api_key",
-    os.getenv("AUDIO_TTS_API_KEY", ""),
-)
 
 AUDIO_TTS_ENGINE = PersistentConfig(
     "AUDIO_TTS_ENGINE",
@@ -1545,13 +1334,13 @@ AUDIO_TTS_ENGINE = PersistentConfig(
 AUDIO_TTS_MODEL = PersistentConfig(
     "AUDIO_TTS_MODEL",
     "audio.tts.model",
-    os.getenv("AUDIO_TTS_MODEL", "tts-1"),  # OpenAI default model
+    os.getenv("AUDIO_TTS_MODEL", "tts-1"),
 )
 
 AUDIO_TTS_VOICE = PersistentConfig(
     "AUDIO_TTS_VOICE",
     "audio.tts.voice",
-    os.getenv("AUDIO_TTS_VOICE", "alloy"),  # OpenAI default voice
+    os.getenv("AUDIO_TTS_VOICE", "alloy"),
 )
 
 
@@ -1559,8 +1348,10 @@ AUDIO_TTS_VOICE = PersistentConfig(
 # Database
 ####################################
 
-DATABASE_URL = os.environ.get("DATABASE_URL", f"sqlite:///{DATA_DIR}/webui.db")
+DATABASE_URL = os.environ.get(
+    "DATABASE_URL", f"sqlite+aiosqlite:///{DATA_DIR}/webui.db"
+)
 
 # Replace the postgres:// with postgresql://
 if "postgres://" in DATABASE_URL:
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://")
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "asyncpg+postgres://")

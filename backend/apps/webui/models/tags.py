@@ -1,16 +1,12 @@
-from pydantic import BaseModel, ConfigDict
-from typing import Optional
-
-import json
-import uuid
-import time
 import logging
-
-from sqlalchemy import String, Column, BigInteger, Text
+import time
+import uuid
+from typing import List, Optional
 
 from apps.webui.internal.db import Base, get_db
-
 from config import SRC_LOG_LEVELS
+from pydantic import BaseModel, ConfigDict
+from sqlalchemy import BigInteger, Column, String, Text, delete, func, select
 
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["MODELS"])
@@ -69,48 +65,42 @@ class ChatIdTagForm(BaseModel):
 
 
 class TagChatIdsResponse(BaseModel):
-    chat_ids: list[str]
+    chat_ids: List[str]
 
 
 class ChatTagsResponse(BaseModel):
-    tags: list[str]
+    tags: List[str]
 
 
 class TagTable:
-
-    def insert_new_tag(self, name: str, user_id: str) -> Optional[TagModel]:
-        with get_db() as db:
-
+    async def insert_new_tag(self, name: str, user_id: str) -> Optional[TagModel]:
+        async with get_db() as db:
             id = str(uuid.uuid4())
             tag = TagModel(**{"id": id, "user_id": user_id, "name": name})
-            try:
-                result = Tag(**tag.model_dump())
-                db.add(result)
-                db.commit()
-                db.refresh(result)
-                if result:
-                    return TagModel.model_validate(result)
-                else:
-                    return None
-            except Exception as e:
+            result = Tag(**tag.model_dump())
+            db.add(result)
+            await db.commit()
+            await db.refresh(result)
+            if result:
+                return TagModel.model_validate(result)
+            else:
                 return None
 
-    def get_tag_by_name_and_user_id(
+    async def get_tag_by_name_and_user_id(
         self, name: str, user_id: str
     ) -> Optional[TagModel]:
-        try:
-            with get_db() as db:
-                tag = db.query(Tag).filter_by(name=name, user_id=user_id).first()
-                return TagModel.model_validate(tag)
-        except Exception as e:
-            return None
+        async with get_db() as db:
+            tag = await db.execute(
+                select(Tag).where(Tag.name == name, Tag.user_id == user_id)
+            )
+            return TagModel.model_validate(tag.scalar())
 
-    def add_tag_to_chat(
+    async def add_tag_to_chat(
         self, user_id: str, form_data: ChatIdTagForm
     ) -> Optional[ChatIdTagModel]:
-        tag = self.get_tag_by_name_and_user_id(form_data.tag_name, user_id)
+        tag = await self.get_tag_by_name_and_user_id(form_data.tag_name, user_id)
         if tag is None:
-            tag = self.insert_new_tag(form_data.tag_name, user_id)
+            tag = await self.insert_new_tag(form_data.tag_name, user_id)
 
         id = str(uuid.uuid4())
         chatIdTag = ChatIdTagModel(
@@ -122,147 +112,116 @@ class TagTable:
                 "timestamp": int(time.time()),
             }
         )
-        try:
-            with get_db() as db:
-                result = ChatIdTag(**chatIdTag.model_dump())
-                db.add(result)
-                db.commit()
-                db.refresh(result)
-                if result:
-                    return ChatIdTagModel.model_validate(result)
-                else:
-                    return None
-        except Exception:
-            return None
+        async with get_db() as db:
+            result = ChatIdTag(**chatIdTag.model_dump())
+            db.add(result)
+            await db.commit()
+            await db.refresh(result)
+            if result:
+                return ChatIdTagModel.model_validate(result)
+            else:
+                return None
 
-    def get_tags_by_user_id(self, user_id: str) -> list[TagModel]:
-        with get_db() as db:
-            tag_names = [
-                chat_id_tag.tag_name
-                for chat_id_tag in (
-                    db.query(ChatIdTag)
-                    .filter_by(user_id=user_id)
-                    .order_by(ChatIdTag.timestamp.desc())
-                    .all()
-                )
-            ]
-
-            return [
-                TagModel.model_validate(tag)
-                for tag in (
-                    db.query(Tag)
-                    .filter_by(user_id=user_id)
-                    .filter(Tag.name.in_(tag_names))
-                    .all()
-                )
-            ]
-
-    def get_tags_by_chat_id_and_user_id(
-        self, chat_id: str, user_id: str
-    ) -> list[TagModel]:
-        with get_db() as db:
-
-            tag_names = [
-                chat_id_tag.tag_name
-                for chat_id_tag in (
-                    db.query(ChatIdTag)
-                    .filter_by(user_id=user_id, chat_id=chat_id)
-                    .order_by(ChatIdTag.timestamp.desc())
-                    .all()
-                )
-            ]
-
-            return [
-                TagModel.model_validate(tag)
-                for tag in (
-                    db.query(Tag)
-                    .filter_by(user_id=user_id)
-                    .filter(Tag.name.in_(tag_names))
-                    .all()
-                )
-            ]
-
-    def get_chat_ids_by_tag_name_and_user_id(
-        self, tag_name: str, user_id: str
-    ) -> list[ChatIdTagModel]:
-        with get_db() as db:
-
-            return [
-                ChatIdTagModel.model_validate(chat_id_tag)
-                for chat_id_tag in (
-                    db.query(ChatIdTag)
-                    .filter_by(user_id=user_id, tag_name=tag_name)
-                    .order_by(ChatIdTag.timestamp.desc())
-                    .all()
-                )
-            ]
-
-    def count_chat_ids_by_tag_name_and_user_id(
-        self, tag_name: str, user_id: str
-    ) -> int:
-        with get_db() as db:
-
-            return (
-                db.query(ChatIdTag)
-                .filter_by(tag_name=tag_name, user_id=user_id)
-                .count()
+    async def get_tags_by_user_id(self, user_id: str) -> List[TagModel]:
+        async with get_db() as db:
+            tags = await db.execute(
+                select(Tag).where(Tag.user_id == user_id).order_by(Tag.name.desc())
             )
 
-    def delete_tag_by_tag_name_and_user_id(self, tag_name: str, user_id: str) -> bool:
-        try:
-            with get_db() as db:
-                res = (
-                    db.query(ChatIdTag)
-                    .filter_by(tag_name=tag_name, user_id=user_id)
-                    .delete()
-                )
-                log.debug(f"res: {res}")
-                db.commit()
+            tag_names = [chat_id_tag.tag_name for chat_id_tag in tags.scalars().all()]
+            tag_names = await db.execute(select(Tag).where(Tag.name.in_(tag_names)))
+            return [TagModel.model_validate(tag) for tag in tag_names.scalars().all()]
 
-                tag_count = self.count_chat_ids_by_tag_name_and_user_id(
-                    tag_name, user_id
-                )
-                if tag_count == 0:
-                    # Remove tag item from Tag col as well
-                    db.query(Tag).filter_by(name=tag_name, user_id=user_id).delete()
-                    db.commit()
-                return True
-        except Exception as e:
-            log.error(f"delete_tag: {e}")
-            return False
+    async def get_tags_by_chat_id_and_user_id(
+        self, chat_id: str, user_id: str
+    ) -> List[TagModel]:
+        async with get_db() as db:
+            tag_names = await db.execute(
+                select(ChatIdTag.tag_name)
+                .where(ChatIdTag.chat_id == chat_id, ChatIdTag.user_id == user_id)
+                .order_by(ChatIdTag.timestamp.desc())
+            )
+            tag_names = [x for x in tag_names.scalars().all()]
+            tags = await db.execute(select(Tag).where(Tag.name.in_(tag_names)))
+            return [TagModel.model_validate(tag) for tag in tags.scalars().all()]
 
-    def delete_tag_by_tag_name_and_chat_id_and_user_id(
+    async def get_chat_ids_by_tag_name_and_user_id(
+        self, tag_name: str, user_id: str
+    ) -> List[ChatIdTagModel]:
+        async with get_db() as db:
+            tags = await db.execute(
+                select(ChatIdTag)
+                .where(ChatIdTag.tag_name == tag_name, ChatIdTag.user_id == user_id)
+                .order_by(ChatIdTag.timestamp.desc())
+            )
+            return [
+                ChatIdTagModel.model_validate(chat_id_tag)
+                for chat_id_tag in tags.scalars().all()
+            ]
+
+    async def count_chat_ids_by_tag_name_and_user_id(
+        self, tag_name: str, user_id: str
+    ) -> int:
+        async with get_db() as db:
+            counts = await db.execute(
+                select(func.count(ChatIdTag.id)).where(
+                    ChatIdTag.tag_name == tag_name, ChatIdTag.user_id == user_id
+                )
+            )
+            return counts.scalar()
+
+    async def delete_tag_by_tag_name_and_user_id(
+        self, tag_name: str, user_id: str
+    ) -> bool:
+        async with get_db() as db:
+            await db.execute(
+                delete(Tag).where(Tag.name == tag_name, Tag.user_id == user_id)
+            )
+            await db.commit()
+
+            tag_count = await self.count_chat_ids_by_tag_name_and_user_id(
+                tag_name, user_id
+            )
+            if tag_count == 0:
+                # Remove tag item from Tag col as well
+                await db.execute(
+                    delete(Tag).where(Tag.name == tag_name, Tag.user_id == user_id)
+                )
+                await db.commit()
+            return True
+
+    async def delete_tag_by_tag_name_and_chat_id_and_user_id(
         self, tag_name: str, chat_id: str, user_id: str
     ) -> bool:
-        try:
-            with get_db() as db:
-
-                res = (
-                    db.query(ChatIdTag)
-                    .filter_by(tag_name=tag_name, chat_id=chat_id, user_id=user_id)
-                    .delete()
+        async with get_db() as db:
+            await db.execute(
+                delete(ChatIdTag).where(
+                    ChatIdTag.tag_name == tag_name,
+                    ChatIdTag.chat_id == chat_id,
+                    ChatIdTag.user_id == user_id,
                 )
-                log.debug(f"res: {res}")
-                db.commit()
+            )
+            await db.commit()
 
-                tag_count = self.count_chat_ids_by_tag_name_and_user_id(
-                    tag_name, user_id
+            tag_count = await self.count_chat_ids_by_tag_name_and_user_id(
+                tag_name, user_id
+            )
+            if tag_count == 0:
+                # Remove tag item from Tag col as well
+                await db.execute(
+                    delete(Tag).where(Tag.name == tag_name, Tag.user_id == user_id)
                 )
-                if tag_count == 0:
-                    # Remove tag item from Tag col as well
-                    db.query(Tag).filter_by(name=tag_name, user_id=user_id).delete()
-                    db.commit()
+                await db.commit()
 
-                return True
-        except Exception as e:
-            log.error(f"delete_tag: {e}")
-            return False
+            return True
 
-    def delete_tags_by_chat_id_and_user_id(self, chat_id: str, user_id: str) -> bool:
-        tags = self.get_tags_by_chat_id_and_user_id(chat_id, user_id)
+    async def delete_tags_by_chat_id_and_user_id(
+        self, chat_id: str, user_id: str
+    ) -> bool:
+        tags = await self.get_tags_by_chat_id_and_user_id(chat_id, user_id)
 
         for tag in tags:
-            self.delete_tag_by_tag_name_and_chat_id_and_user_id(
+            await self.delete_tag_by_tag_name_and_chat_id_and_user_id(
                 tag.tag_name, chat_id, user_id
             )
 

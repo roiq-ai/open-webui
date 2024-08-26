@@ -1,38 +1,30 @@
-from fastapi import Depends, FastAPI, HTTPException, status, Request
-from datetime import datetime, timedelta
-from typing import Union, Optional
-
-from fastapi import APIRouter
-from pydantic import BaseModel
-import json
+import os
+from pathlib import Path
+from typing import List, Optional
 
 from apps.webui.models.functions import (
-    Functions,
     FunctionForm,
     FunctionModel,
     FunctionResponse,
+    Functions,
 )
 from apps.webui.utils import load_function_module_by_id
-from utils.utils import get_verified_user, get_admin_user
+from config import CACHE_DIR, FUNCTIONS_DIR
 from constants import ERROR_MESSAGES
-
-from importlib import util
-import os
-from pathlib import Path
-
-from config import DATA_DIR, CACHE_DIR, FUNCTIONS_DIR
-
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from utils.utils import get_admin_user, get_verified_user
 
 router = APIRouter()
+
 
 ############################
 # GetFunctions
 ############################
 
 
-@router.get("/", response_model=list[FunctionResponse])
+@router.get("/", response_model=List[FunctionResponse])
 async def get_functions(user=Depends(get_verified_user)):
-    return Functions.get_functions()
+    return await Functions.get_functions()
 
 
 ############################
@@ -40,9 +32,9 @@ async def get_functions(user=Depends(get_verified_user)):
 ############################
 
 
-@router.get("/export", response_model=list[FunctionModel])
+@router.get("/export", response_model=List[FunctionModel])
 async def get_functions(user=Depends(get_admin_user)):
-    return Functions.get_functions()
+    return await Functions.get_functions()
 
 
 ############################
@@ -62,7 +54,7 @@ async def create_new_function(
 
     form_data.id = form_data.id.lower()
 
-    function = Functions.get_function_by_id(form_data.id)
+    function = await Functions.get_function_by_id(form_data.id)
     if function is None:
         function_path = os.path.join(FUNCTIONS_DIR, f"{form_data.id}.py")
         try:
@@ -77,7 +69,9 @@ async def create_new_function(
             FUNCTIONS = request.app.state.FUNCTIONS
             FUNCTIONS[form_data.id] = function_module
 
-            function = Functions.insert_new_function(user.id, function_type, form_data)
+            function = await Functions.insert_new_function(
+                user.id, function_type, form_data
+            )
 
             function_cache_dir = Path(CACHE_DIR) / "functions" / form_data.id
             function_cache_dir.mkdir(parents=True, exist_ok=True)
@@ -109,7 +103,7 @@ async def create_new_function(
 
 @router.get("/id/{id}", response_model=Optional[FunctionModel])
 async def get_function_by_id(id: str, user=Depends(get_admin_user)):
-    function = Functions.get_function_by_id(id)
+    function = await Functions.get_function_by_id(id)
 
     if function:
         return function
@@ -127,9 +121,9 @@ async def get_function_by_id(id: str, user=Depends(get_admin_user)):
 
 @router.post("/id/{id}/toggle", response_model=Optional[FunctionModel])
 async def toggle_function_by_id(id: str, user=Depends(get_admin_user)):
-    function = Functions.get_function_by_id(id)
+    function = await Functions.get_function_by_id(id)
     if function:
-        function = Functions.update_function_by_id(
+        function = await Functions.update_function_by_id(
             id, {"is_active": not function.is_active}
         )
 
@@ -154,9 +148,9 @@ async def toggle_function_by_id(id: str, user=Depends(get_admin_user)):
 
 @router.post("/id/{id}/toggle/global", response_model=Optional[FunctionModel])
 async def toggle_global_by_id(id: str, user=Depends(get_admin_user)):
-    function = Functions.get_function_by_id(id)
+    function = await Functions.get_function_by_id(id)
     if function:
-        function = Functions.update_function_by_id(
+        function = await Functions.update_function_by_id(
             id, {"is_global": not function.is_global}
         )
 
@@ -198,7 +192,7 @@ async def update_function_by_id(
         updated = {**form_data.model_dump(exclude={"id"}), "type": function_type}
         print(updated)
 
-        function = Functions.update_function_by_id(id, updated)
+        function = await Functions.update_function_by_id(id, updated)
 
         if function:
             return function
@@ -224,7 +218,7 @@ async def update_function_by_id(
 async def delete_function_by_id(
     request: Request, id: str, user=Depends(get_admin_user)
 ):
-    result = Functions.delete_function_by_id(id)
+    result = await Functions.delete_function_by_id(id)
 
     if result:
         FUNCTIONS = request.app.state.FUNCTIONS
@@ -235,7 +229,7 @@ async def delete_function_by_id(
         function_path = os.path.join(FUNCTIONS_DIR, f"{id}.py")
         try:
             os.remove(function_path)
-        except Exception:
+        except:
             pass
 
     return result
@@ -251,7 +245,7 @@ async def get_function_valves_by_id(id: str, user=Depends(get_admin_user)):
     function = Functions.get_function_by_id(id)
     if function:
         try:
-            valves = Functions.get_function_valves_by_id(id)
+            valves = await Functions.get_function_valves_by_id(id)
             return valves
         except Exception as e:
             raise HTTPException(
@@ -274,7 +268,7 @@ async def get_function_valves_by_id(id: str, user=Depends(get_admin_user)):
 async def get_function_valves_spec_by_id(
     request: Request, id: str, user=Depends(get_admin_user)
 ):
-    function = Functions.get_function_by_id(id)
+    function = await Functions.get_function_by_id(id)
     if function:
         if id in request.app.state.FUNCTIONS:
             function_module = request.app.state.FUNCTIONS[id]
@@ -302,9 +296,8 @@ async def get_function_valves_spec_by_id(
 async def update_function_valves_by_id(
     request: Request, id: str, form_data: dict, user=Depends(get_admin_user)
 ):
-    function = Functions.get_function_by_id(id)
+    function = await Functions.get_function_by_id(id)
     if function:
-
         if id in request.app.state.FUNCTIONS:
             function_module = request.app.state.FUNCTIONS[id]
         else:
@@ -317,7 +310,7 @@ async def update_function_valves_by_id(
             try:
                 form_data = {k: v for k, v in form_data.items() if v is not None}
                 valves = Valves(**form_data)
-                Functions.update_function_valves_by_id(id, valves.model_dump())
+                await Functions.update_function_valves_by_id(id, valves.model_dump())
                 return valves.model_dump()
             except Exception as e:
                 print(e)
@@ -348,7 +341,7 @@ async def get_function_user_valves_by_id(id: str, user=Depends(get_verified_user
     function = Functions.get_function_by_id(id)
     if function:
         try:
-            user_valves = Functions.get_user_valves_by_id_and_user_id(id, user.id)
+            user_valves = await Functions.get_user_valves_by_id_and_user_id(id, user.id)
             return user_valves
         except Exception as e:
             raise HTTPException(
@@ -366,7 +359,7 @@ async def get_function_user_valves_by_id(id: str, user=Depends(get_verified_user
 async def get_function_user_valves_spec_by_id(
     request: Request, id: str, user=Depends(get_verified_user)
 ):
-    function = Functions.get_function_by_id(id)
+    function = await Functions.get_function_by_id(id)
     if function:
         if id in request.app.state.FUNCTIONS:
             function_module = request.app.state.FUNCTIONS[id]
@@ -389,7 +382,7 @@ async def get_function_user_valves_spec_by_id(
 async def update_function_user_valves_by_id(
     request: Request, id: str, form_data: dict, user=Depends(get_verified_user)
 ):
-    function = Functions.get_function_by_id(id)
+    function = await Functions.get_function_by_id(id)
 
     if function:
         if id in request.app.state.FUNCTIONS:
@@ -404,7 +397,7 @@ async def update_function_user_valves_by_id(
             try:
                 form_data = {k: v for k, v in form_data.items() if v is not None}
                 user_valves = UserValves(**form_data)
-                Functions.update_user_valves_by_id_and_user_id(
+                await Functions.update_user_valves_by_id_and_user_id(
                     id, user.id, user_valves.model_dump()
                 )
                 return user_valves.model_dump()

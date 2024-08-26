@@ -1,43 +1,36 @@
-import logging
-
-from fastapi import Request, UploadFile, File
-from fastapi import Depends, HTTPException, status
-from fastapi.responses import Response
-
-from fastapi import APIRouter
-from pydantic import BaseModel
 import re
 import uuid
-import csv
 
 from apps.webui.models.auths import (
-    SigninForm,
-    SignupForm,
     AddUserForm,
-    UpdateProfileForm,
-    UpdatePasswordForm,
-    UserResponse,
-    SigninResponse,
-    Auths,
     ApiKey,
+    Auths,
+    SigninForm,
+    SigninResponse,
+    SignupForm,
+    UpdatePasswordForm,
+    UpdateProfileForm,
+    UserResponse,
 )
 from apps.webui.models.users import Users
-
-from utils.utils import (
-    get_password_hash,
-    get_current_user,
-    get_admin_user,
-    create_token,
-    create_api_key,
-)
-from utils.misc import parse_duration, validate_email_format
-from utils.webhook import post_webhook
-from constants import ERROR_MESSAGES, WEBHOOK_MESSAGES
 from config import (
     WEBUI_AUTH,
     WEBUI_AUTH_TRUSTED_EMAIL_HEADER,
     WEBUI_AUTH_TRUSTED_NAME_HEADER,
 )
+from constants import ERROR_MESSAGES, WEBHOOK_MESSAGES
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import Response
+from pydantic import BaseModel
+from utils.misc import parse_duration, validate_email_format
+from utils.utils import (
+    create_api_key,
+    create_token,
+    get_admin_user,
+    get_current_user,
+    get_password_hash,
+)
+from utils.webhook import post_webhook
 
 router = APIRouter()
 
@@ -81,7 +74,7 @@ async def update_profile(
     form_data: UpdateProfileForm, session_user=Depends(get_current_user)
 ):
     if session_user:
-        user = Users.update_user_by_id(
+        user = await Users.update_user_by_id(
             session_user.id,
             {"profile_image_url": form_data.profile_image_url, "name": form_data.name},
         )
@@ -105,11 +98,11 @@ async def update_password(
     if WEBUI_AUTH_TRUSTED_EMAIL_HEADER:
         raise HTTPException(400, detail=ERROR_MESSAGES.ACTION_PROHIBITED)
     if session_user:
-        user = Auths.authenticate_user(session_user.email, form_data.password)
+        user = await Auths.authenticate_user(session_user.email, form_data.password)
 
         if user:
             hashed = get_password_hash(form_data.new_password)
-            return Auths.update_user_password_by_id(user.id, hashed)
+            return await Auths.update_user_password_by_id(user.id, hashed)
         else:
             raise HTTPException(400, detail=ERROR_MESSAGES.INVALID_PASSWORD)
     else:
@@ -133,7 +126,7 @@ async def signin(request: Request, response: Response, form_data: SigninForm):
             trusted_name = request.headers.get(
                 WEBUI_AUTH_TRUSTED_NAME_HEADER, trusted_email
             )
-        if not Users.get_user_by_email(trusted_email.lower()):
+        if not await Users.get_user_by_email(trusted_email.lower()):
             await signup(
                 request,
                 response,
@@ -141,15 +134,15 @@ async def signin(request: Request, response: Response, form_data: SigninForm):
                     email=trusted_email, password=str(uuid.uuid4()), name=trusted_name
                 ),
             )
-        user = Auths.authenticate_user_by_trusted_header(trusted_email)
+        user = await Auths.authenticate_user_by_trusted_header(trusted_email)
     elif WEBUI_AUTH == False:
         admin_email = "admin@localhost"
         admin_password = "admin"
 
-        if Users.get_user_by_email(admin_email.lower()):
-            user = Auths.authenticate_user(admin_email.lower(), admin_password)
+        if await Users.get_user_by_email(admin_email.lower()):
+            user = await Auths.authenticate_user(admin_email.lower(), admin_password)
         else:
-            if Users.get_num_users() != 0:
+            if await Users.get_num_users() != 0:
                 raise HTTPException(400, detail=ERROR_MESSAGES.EXISTING_USERS)
 
             await signup(
@@ -158,9 +151,11 @@ async def signin(request: Request, response: Response, form_data: SigninForm):
                 SignupForm(email=admin_email, password=admin_password, name="User"),
             )
 
-            user = Auths.authenticate_user(admin_email.lower(), admin_password)
+            user = await Auths.authenticate_user(admin_email.lower(), admin_password)
     else:
-        user = Auths.authenticate_user(form_data.email.lower(), form_data.password)
+        user = await Auths.authenticate_user(
+            form_data.email.lower(), form_data.password
+        )
 
     if user:
         token = create_token(
@@ -205,7 +200,7 @@ async def signup(request: Request, response: Response, form_data: SignupForm):
             status.HTTP_400_BAD_REQUEST, detail=ERROR_MESSAGES.INVALID_EMAIL_FORMAT
         )
 
-    if Users.get_user_by_email(form_data.email.lower()):
+    if await Users.get_user_by_email(form_data.email.lower()):
         raise HTTPException(400, detail=ERROR_MESSAGES.EMAIL_TAKEN)
 
     try:
@@ -215,7 +210,7 @@ async def signup(request: Request, response: Response, form_data: SignupForm):
             else request.app.state.config.DEFAULT_USER_ROLE
         )
         hashed = get_password_hash(form_data.password)
-        user = Auths.insert_new_auth(
+        user = await Auths.insert_new_auth(
             form_data.email.lower(),
             hashed,
             form_data.name,
@@ -270,20 +265,18 @@ async def signup(request: Request, response: Response, form_data: SignupForm):
 
 @router.post("/add", response_model=SigninResponse)
 async def add_user(form_data: AddUserForm, user=Depends(get_admin_user)):
-
     if not validate_email_format(form_data.email.lower()):
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST, detail=ERROR_MESSAGES.INVALID_EMAIL_FORMAT
         )
 
-    if Users.get_user_by_email(form_data.email.lower()):
+    if await Users.get_user_by_email(form_data.email.lower()):
         raise HTTPException(400, detail=ERROR_MESSAGES.EMAIL_TAKEN)
 
     try:
-
         print(form_data)
         hashed = get_password_hash(form_data.password)
-        user = Auths.insert_new_auth(
+        user = await Auths.insert_new_auth(
             form_data.email.lower(),
             hashed,
             form_data.name,
@@ -322,11 +315,11 @@ async def get_admin_details(request: Request, user=Depends(get_current_user)):
         print(admin_email, admin_name)
 
         if admin_email:
-            admin = Users.get_user_by_email(admin_email)
+            admin = await Users.get_user_by_email(admin_email)
             if admin:
                 admin_name = admin.name
         else:
-            admin = Users.get_first_user()
+            admin = await Users.get_first_user()
             if admin:
                 admin_email = admin.email
                 admin_name = admin.name
@@ -405,7 +398,7 @@ async def update_admin_config(
 @router.post("/api_key", response_model=ApiKey)
 async def create_api_key_(user=Depends(get_current_user)):
     api_key = create_api_key()
-    success = Users.update_user_api_key_by_id(user.id, api_key)
+    success = await Users.update_user_api_key_by_id(user.id, api_key)
     if success:
         return {
             "api_key": api_key,
@@ -417,14 +410,14 @@ async def create_api_key_(user=Depends(get_current_user)):
 # delete api key
 @router.delete("/api_key", response_model=bool)
 async def delete_api_key(user=Depends(get_current_user)):
-    success = Users.update_user_api_key_by_id(user.id, None)
+    success = await Users.update_user_api_key_by_id(user.id, None)
     return success
 
 
 # get api key
 @router.get("/api_key", response_model=ApiKey)
 async def get_api_key(user=Depends(get_current_user)):
-    api_key = Users.get_user_api_key_by_id(user.id)
+    api_key = await Users.get_user_api_key_by_id(user.id)
     if api_key:
         return {
             "api_key": api_key,

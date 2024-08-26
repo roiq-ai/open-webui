@@ -1,9 +1,8 @@
-import json
 import logging
-from typing import Optional
-import requests
+from typing import List, Optional
 from urllib.parse import urlencode
 
+import requests
 from apps.rag.search.main import SearchResult, get_filtered_results
 from config import SRC_LOG_LEVELS
 
@@ -19,7 +18,7 @@ def search_serply(
     limit: int = 10,
     device_type: str = "desktop",
     proxy_location: str = "US",
-    filter_list: Optional[list[str]] = None,
+    filter_list: Optional[List[str]] = None,
 ) -> list[SearchResult]:
     """Search using serper.dev's API and return the results as a list of SearchResult objects.
 

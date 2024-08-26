@@ -5,10 +5,9 @@ import time
 import docker
 import pytest
 from docker import DockerClient
-from pytest_docker.plugin import get_docker_ip
 from fastapi.testclient import TestClient
-from sqlalchemy import text, create_engine
-
+from pytest_docker.plugin import get_docker_ip
+from sqlalchemy import create_engine, text
 
 log = logging.getLogger(__name__)
 
@@ -64,7 +63,7 @@ class AbstractPostgresTest(AbstractIntegrationTest):
         pw = env_vars_postgres["POSTGRES_PASSWORD"]
         port = 8081
         db = env_vars_postgres["POSTGRES_DB"]
-        return f"postgresql://{user}:{pw}@{host}:{port}/{db}"
+        return f"asyncpg+postgresql://{user}:{pw}@{host}:{port}/{db}"
 
     @classmethod
     def setup_class(cls):
@@ -92,7 +91,7 @@ class AbstractPostgresTest(AbstractIntegrationTest):
             db = None
             while retries > 0:
                 try:
-                    from config import BACKEND_DIR
+                    pass
 
                     db = create_engine(database_url, pool_pre_ping=True)
                     db = db.connect()

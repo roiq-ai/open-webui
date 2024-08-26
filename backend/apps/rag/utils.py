@@ -1,27 +1,15 @@
-import os
 import logging
+import os
+from typing import List, Optional, Union
+
 import requests
-
-from typing import Union
-
-from apps.ollama.main import (
-    generate_ollama_embeddings,
-    GenerateEmbeddingsForm,
-)
-
+from apps.ollama.main import GenerateEmbeddingsForm, generate_ollama_embeddings
+from config import CHROMA_CLIENT, SRC_LOG_LEVELS
 from huggingface_hub import snapshot_download
-
-from langchain_core.documents import Document
+from langchain.retrievers import ContextualCompressionRetriever, EnsembleRetriever
 from langchain_community.retrievers import BM25Retriever
-from langchain.retrievers import (
-    ContextualCompressionRetriever,
-    EnsembleRetriever,
-)
-
-from typing import Optional
-
-from utils.misc import get_last_user_message, add_or_update_system_message
-from config import SRC_LOG_LEVELS, CHROMA_CLIENT
+from langchain_core.documents import Document
+from utils.misc import get_last_user_message
 
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["RAG"])
@@ -142,7 +130,7 @@ def merge_and_sort_query_results(query_results, k, reverse=False):
 
 
 def query_collection(
-    collection_names: list[str],
+    collection_names: List[str],
     query: str,
     embedding_function,
     k: int,
@@ -157,13 +145,13 @@ def query_collection(
                 embedding_function=embedding_function,
             )
             results.append(result)
-        except Exception:
+        except:
             pass
     return merge_and_sort_query_results(results, k=k)
 
 
 def query_collection_with_hybrid_search(
-    collection_names: list[str],
+    collection_names: List[str],
     query: str,
     embedding_function,
     k: int,
@@ -182,7 +170,7 @@ def query_collection_with_hybrid_search(
                 r=r,
             )
             results.append(result)
-        except Exception:
+        except:
             pass
     return merge_and_sort_query_results(results, k=k, reverse=True)
 
@@ -397,8 +385,8 @@ def generate_openai_batch_embeddings(
 
 from typing import Any
 
-from langchain_core.retrievers import BaseRetriever
 from langchain_core.callbacks import CallbackManagerForRetrieverRun
+from langchain_core.retrievers import BaseRetriever
 
 
 class ChromaRetriever(BaseRetriever):
@@ -411,7 +399,7 @@ class ChromaRetriever(BaseRetriever):
         query: str,
         *,
         run_manager: CallbackManagerForRetrieverRun,
-    ) -> list[Document]:
+    ) -> List[Document]:
         query_embeddings = self.embedding_function(query)
 
         results = self.collection.query(
@@ -435,11 +423,10 @@ class ChromaRetriever(BaseRetriever):
 
 
 import operator
-
 from typing import Optional, Sequence
 
-from langchain_core.documents import BaseDocumentCompressor, Document
 from langchain_core.callbacks import Callbacks
+from langchain_core.documents import BaseDocumentCompressor, Document
 from langchain_core.pydantic_v1 import Extra
 
 

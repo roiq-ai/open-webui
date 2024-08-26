@@ -1,33 +1,20 @@
-from fastapi import Response, Request
-from fastapi import Depends, FastAPI, HTTPException, status
-from datetime import datetime, timedelta
-from typing import Union, Optional
-
-from fastapi import APIRouter
-from pydantic import BaseModel
-import time
-import uuid
 import logging
+from typing import List, Optional
 
-from apps.webui.models.users import (
-    UserModel,
-    UserUpdateForm,
-    UserRoleUpdateForm,
-    UserSettings,
-    Users,
-)
 from apps.webui.models.auths import Auths
 from apps.webui.models.chats import Chats
-
-from utils.utils import (
-    get_verified_user,
-    get_password_hash,
-    get_current_user,
-    get_admin_user,
+from apps.webui.models.users import (
+    UserModel,
+    UserRoleUpdateForm,
+    Users,
+    UserSettings,
+    UserUpdateForm,
 )
-from constants import ERROR_MESSAGES
-
 from config import SRC_LOG_LEVELS
+from constants import ERROR_MESSAGES
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel
+from utils.utils import get_admin_user, get_password_hash, get_verified_user
 
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["MODELS"])
@@ -39,9 +26,9 @@ router = APIRouter()
 ############################
 
 
-@router.get("/", response_model=list[UserModel])
+@router.get("/", response_model=List[UserModel])
 async def get_users(skip: int = 0, limit: int = 50, user=Depends(get_admin_user)):
-    return Users.get_users(skip, limit)
+    return await Users.get_users(skip, limit)
 
 
 ############################
@@ -69,9 +56,8 @@ async def update_user_permissions(
 
 @router.post("/update/role", response_model=Optional[UserModel])
 async def update_user_role(form_data: UserRoleUpdateForm, user=Depends(get_admin_user)):
-
     if user.id != form_data.id and form_data.id != Users.get_first_user().id:
-        return Users.update_user_role_by_id(form_data.id, form_data.role)
+        return await Users.update_user_role_by_id(form_data.id, form_data.role)
 
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
@@ -86,7 +72,7 @@ async def update_user_role(form_data: UserRoleUpdateForm, user=Depends(get_admin
 
 @router.get("/user/settings", response_model=Optional[UserSettings])
 async def get_user_settings_by_session_user(user=Depends(get_verified_user)):
-    user = Users.get_user_by_id(user.id)
+    user = await Users.get_user_by_id(user.id)
     if user:
         return user.settings
     else:
@@ -105,7 +91,7 @@ async def get_user_settings_by_session_user(user=Depends(get_verified_user)):
 async def update_user_settings_by_session_user(
     form_data: UserSettings, user=Depends(get_verified_user)
 ):
-    user = Users.update_user_by_id(user.id, {"settings": form_data.model_dump()})
+    user = await Users.update_user_by_id(user.id, {"settings": form_data.model_dump()})
     if user:
         return user.settings
     else:
@@ -122,7 +108,7 @@ async def update_user_settings_by_session_user(
 
 @router.get("/user/info", response_model=Optional[dict])
 async def get_user_info_by_session_user(user=Depends(get_verified_user)):
-    user = Users.get_user_by_id(user.id)
+    user = await Users.get_user_by_id(user.id)
     if user:
         return user.info
     else:
@@ -141,12 +127,14 @@ async def get_user_info_by_session_user(user=Depends(get_verified_user)):
 async def update_user_info_by_session_user(
     form_data: dict, user=Depends(get_verified_user)
 ):
-    user = Users.get_user_by_id(user.id)
+    user = await Users.get_user_by_id(user.id)
     if user:
         if user.info is None:
             user.info = {}
 
-        user = Users.update_user_by_id(user.id, {"info": {**user.info, **form_data}})
+        user = await Users.update_user_by_id(
+            user.id, {"info": {**user.info, **form_data}}
+        )
         if user:
             return user.info
         else:
@@ -173,12 +161,11 @@ class UserResponse(BaseModel):
 
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user_by_id(user_id: str, user=Depends(get_verified_user)):
-
     # Check if user_id is a shared chat
     # If it is, get the user_id from the chat
     if user_id.startswith("shared-"):
         chat_id = user_id.replace("shared-", "")
-        chat = Chats.get_chat_by_id(chat_id)
+        chat = await Chats.get_chat_by_id(chat_id)
         if chat:
             user_id = chat.user_id
         else:
@@ -187,7 +174,7 @@ async def get_user_by_id(user_id: str, user=Depends(get_verified_user)):
                 detail=ERROR_MESSAGES.USER_NOT_FOUND,
             )
 
-    user = Users.get_user_by_id(user_id)
+    user = await Users.get_user_by_id(user_id)
 
     if user:
         return UserResponse(name=user.name, profile_image_url=user.profile_image_url)
@@ -209,11 +196,11 @@ async def update_user_by_id(
     form_data: UserUpdateForm,
     session_user=Depends(get_admin_user),
 ):
-    user = Users.get_user_by_id(user_id)
+    user = await Users.get_user_by_id(user_id)
 
     if user:
         if form_data.email.lower() != user.email:
-            email_user = Users.get_user_by_email(form_data.email.lower())
+            email_user = await Users.get_user_by_email(form_data.email.lower())
             if email_user:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -225,8 +212,8 @@ async def update_user_by_id(
             log.debug(f"hashed: {hashed}")
             Auths.update_user_password_by_id(user_id, hashed)
 
-        Auths.update_email_by_id(user_id, form_data.email.lower())
-        updated_user = Users.update_user_by_id(
+        await Auths.update_email_by_id(user_id, form_data.email.lower())
+        updated_user = await Users.update_user_by_id(
             user_id,
             {
                 "name": form_data.name,
@@ -257,7 +244,7 @@ async def update_user_by_id(
 @router.delete("/{user_id}", response_model=bool)
 async def delete_user_by_id(user_id: str, user=Depends(get_admin_user)):
     if user.id != user_id:
-        result = Auths.delete_auth_by_id(user_id)
+        result = await Auths.delete_auth_by_id(user_id)
 
         if result:
             return True

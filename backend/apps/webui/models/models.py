@@ -1,14 +1,11 @@
 import logging
-from typing import Optional, List
-
-from pydantic import BaseModel, ConfigDict
-from sqlalchemy import Column, BigInteger, Text
+import time
+from typing import List, Optional
 
 from apps.webui.internal.db import Base, JSONField, get_db
-
 from config import SRC_LOG_LEVELS
-
-import time
+from pydantic import BaseModel, ConfigDict
+from sqlalchemy import BigInteger, Column, Text, delete, select, update
 
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["MODELS"])
@@ -22,7 +19,6 @@ log.setLevel(SRC_LOG_LEVELS["MODELS"])
 # ModelParams is a model for the data stored in the params field of the Model table
 class ModelParams(BaseModel):
     model_config = ConfigDict(extra="allow")
-    pass
 
 
 # ModelMeta is a model for the data stored in the meta field of the Model table
@@ -37,8 +33,6 @@ class ModelMeta(BaseModel):
     capabilities: Optional[dict] = None
 
     model_config = ConfigDict(extra="allow")
-
-    pass
 
 
 class Model(Base):
@@ -111,7 +105,7 @@ class ModelForm(BaseModel):
 
 
 class ModelsTable:
-    def insert_new_model(
+    async def insert_new_model(
         self, form_data: ModelForm, user_id: str
     ) -> Optional[ModelModel]:
         model = ModelModel(
@@ -123,11 +117,11 @@ class ModelsTable:
             }
         )
         try:
-            with get_db() as db:
+            async with get_db() as db:
                 result = Model(**model.model_dump())
                 db.add(result)
-                db.commit()
-                db.refresh(result)
+                await db.commit()
+                await db.refresh(result)
 
                 if result:
                     return ModelModel.model_validate(result)
@@ -137,46 +131,48 @@ class ModelsTable:
             print(e)
             return None
 
-    def get_all_models(self) -> list[ModelModel]:
-        with get_db() as db:
-            return [ModelModel.model_validate(model) for model in db.query(Model).all()]
+    async def get_all_models(self) -> List[ModelModel]:
+        async with get_db() as db:
+            models = await db.execute(select(Model))
+            return [
+                ModelModel.model_validate(model) for model in models.scalars().all()
+            ]
 
-    def get_model_by_id(self, id: str) -> Optional[ModelModel]:
-        try:
-            with get_db() as db:
-                model = db.get(Model, id)
+    async def get_model_by_id(self, id: str) -> Optional[ModelModel]:
+        async with get_db() as db:
+            model = await db.execute(select(Model).where(Model.id == id))
+            model = model.scalar()
+            if model:
                 return ModelModel.model_validate(model)
-        except Exception:
-            return None
+            else:
+                return None
 
-    def update_model_by_id(self, id: str, model: ModelForm) -> Optional[ModelModel]:
-        try:
-            with get_db() as db:
-                # update only the fields that are present in the model
-                result = (
-                    db.query(Model)
-                    .filter_by(id=id)
-                    .update(model.model_dump(exclude={"id"}, exclude_none=True))
+    async def update_model_by_id(
+        self, id: str, model: ModelForm
+    ) -> Optional[ModelModel]:
+        async with get_db() as db:
+            # update only the fields that are present in the model
+            result = await db.execute(
+                update(Model)
+                .where(Model.id == id)
+                .values(
+                    **{
+                        k: v
+                        for k, v in model.dict(exclude_unset=True).items()
+                        if k != "id"
+                    }
                 )
-                db.commit()
+                .returning(Model)
+            )
+            await db.commit()
+            model = result.scalar()
+            return ModelModel.model_validate(model)
 
-                model = db.get(Model, id)
-                db.refresh(model)
-                return ModelModel.model_validate(model)
-        except Exception as e:
-            print(e)
-
-            return None
-
-    def delete_model_by_id(self, id: str) -> bool:
-        try:
-            with get_db() as db:
-                db.query(Model).filter_by(id=id).delete()
-                db.commit()
-
-                return True
-        except Exception:
-            return False
+    async def delete_model_by_id(self, id: str) -> bool:
+        async with get_db() as db:
+            await db.execute(delete(Model).where(Model.id == id))
+            await db.commit()
+            return True
 
 
 Models = ModelsTable()

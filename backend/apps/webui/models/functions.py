@@ -1,18 +1,12 @@
-from pydantic import BaseModel, ConfigDict
-from typing import Union, Optional
-import time
 import logging
+import time
+from typing import List, Optional
 
-from sqlalchemy import Column, String, Text, BigInteger, Boolean
-
-from apps.webui.internal.db import JSONField, Base, get_db
+from apps.webui.internal.db import Base, JSONField, get_db
 from apps.webui.models.users import Users
-
-import json
-import copy
-
-
 from config import SRC_LOG_LEVELS
+from pydantic import BaseModel, ConfigDict
+from sqlalchemy import BigInteger, Boolean, Column, String, Text, delete, select, update
 
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["MODELS"])
@@ -87,11 +81,9 @@ class FunctionValves(BaseModel):
 
 
 class FunctionsTable:
-
-    def insert_new_function(
+    async def insert_new_function(
         self, user_id: str, type: str, form_data: FunctionForm
     ) -> Optional[FunctionModel]:
-
         function = FunctionModel(
             **{
                 **form_data.model_dump(),
@@ -103,9 +95,9 @@ class FunctionsTable:
         )
 
         try:
-            with get_db() as db:
+            async with get_db() as db:
                 result = Function(**function.model_dump())
-                db.add(result)
+                await db.add(result)
                 db.commit()
                 db.refresh(result)
                 if result:
@@ -116,116 +108,118 @@ class FunctionsTable:
             print(f"Error creating tool: {e}")
             return None
 
-    def get_function_by_id(self, id: str) -> Optional[FunctionModel]:
+    async def get_function_by_id(self, id: str) -> Optional[FunctionModel]:
         try:
-            with get_db() as db:
-
-                function = db.get(Function, id)
+            async with get_db() as db:
+                function = await db.get(Function, id)
                 return FunctionModel.model_validate(function)
-        except Exception:
+        except:
             return None
 
-    def get_functions(self, active_only=False) -> list[FunctionModel]:
-        with get_db() as db:
-
+    async def get_functions(self, active_only=False) -> List[FunctionModel]:
+        async with get_db() as db:
             if active_only:
+                funcs = await db.execute(
+                    select(Function).where(Function.is_active == True)
+                )
                 return [
                     FunctionModel.model_validate(function)
-                    for function in db.query(Function).filter_by(is_active=True).all()
+                    for function in funcs.scalars().all()
                 ]
             else:
+                funcs = await db.execute(select(Function))
                 return [
-                    FunctionModel.model_validate(function)
-                    for function in db.query(Function).all()
+                    FunctionModel.model_validate(function) for function in funcs.all()
                 ]
 
-    def get_functions_by_type(
+    async def get_functions_by_type(
         self, type: str, active_only=False
-    ) -> list[FunctionModel]:
-        with get_db() as db:
-
+    ) -> List[FunctionModel]:
+        async with get_db() as db:
             if active_only:
+                funcs = await db.execute(
+                    select(Function).where(
+                        Function.type == type, Function.is_active == True
+                    )
+                )
                 return [
                     FunctionModel.model_validate(function)
-                    for function in db.query(Function)
-                    .filter_by(type=type, is_active=True)
-                    .all()
+                    for function in funcs.scalars().all()
                 ]
             else:
+                funcs = await db.execute(select(Function).where(Function.type == type))
                 return [
                     FunctionModel.model_validate(function)
-                    for function in db.query(Function).filter_by(type=type).all()
+                    for function in funcs.scalars().all()
                 ]
 
-    def get_global_filter_functions(self) -> list[FunctionModel]:
-        with get_db() as db:
-
+    async def get_global_filter_functions(self) -> List[FunctionModel]:
+        async with get_db() as db:
+            funcs = await db.execute(
+                select(Function).where(
+                    Function.type == "filter",
+                    Function.is_active == True,
+                    Function.is_global == True,
+                )
+            )
             return [
                 FunctionModel.model_validate(function)
-                for function in db.query(Function)
-                .filter_by(type="filter", is_active=True, is_global=True)
-                .all()
+                for function in funcs.scalars().all()
             ]
 
-    def get_global_action_functions(self) -> list[FunctionModel]:
-        with get_db() as db:
+    async def get_global_action_functions(self) -> List[FunctionModel]:
+        async with get_db() as db:
+            funcs = await db.execute(
+                select(Function).where(
+                    Function.type == "action",
+                    Function.is_active == True,
+                    Function.is_global == True,
+                )
+            )
             return [
                 FunctionModel.model_validate(function)
-                for function in db.query(Function)
-                .filter_by(type="action", is_active=True, is_global=True)
-                .all()
+                for function in funcs.scalars().all()
             ]
 
-    def get_function_valves_by_id(self, id: str) -> Optional[dict]:
-        with get_db() as db:
+    async def get_function_valves_by_id(self, id: str) -> Optional[dict]:
+        async with get_db() as db:
+            function = await db.get(Function, id)
+            return function.valves if function.valves else {}
 
-            try:
-                function = db.get(Function, id)
-                return function.valves if function.valves else {}
-            except Exception as e:
-                print(f"An error occurred: {e}")
-                return None
-
-    def update_function_valves_by_id(
+    async def update_function_valves_by_id(
         self, id: str, valves: dict
     ) -> Optional[FunctionValves]:
-        with get_db() as db:
+        async with get_db() as db:
+            await db.execute(
+                update(Function)
+                .where(Function.id == id)
+                .values(
+                    valves=valves,
+                    updated_at=int(time.time()),
+                )
+                .returning(Function.id)
+            )
+            await db.commit()
 
-            try:
-                function = db.get(Function, id)
-                function.valves = valves
-                function.updated_at = int(time.time())
-                db.commit()
-                db.refresh(function)
-                return self.get_function_by_id(id)
-            except Exception:
-                return None
-
-    def get_user_valves_by_id_and_user_id(
+    async def get_user_valves_by_id_and_user_id(
         self, id: str, user_id: str
     ) -> Optional[dict]:
+        user = await Users.get_user_by_id(user_id)
+        user_settings = user.settings.model_dump() if user.settings else {}
 
-        try:
-            user = Users.get_user_by_id(user_id)
-            user_settings = user.settings.model_dump() if user.settings else {}
+        # Check if user has "functions" and "valves" settings
+        if "functions" not in user_settings:
+            user_settings["functions"] = {}
+        if "valves" not in user_settings["functions"]:
+            user_settings["functions"]["valves"] = {}
 
-            # Check if user has "functions" and "valves" settings
-            if "functions" not in user_settings:
-                user_settings["functions"] = {}
-            if "valves" not in user_settings["functions"]:
-                user_settings["functions"]["valves"] = {}
+        return user_settings["functions"]["valves"].get(id, {})
 
-            return user_settings["functions"]["valves"].get(id, {})
-        except Exception as e:
-            print(f"An error occurred: {e}")
-            return None
-
-    def update_user_valves_by_id_and_user_id(
+    async def update_user_valves_by_id_and_user_id(
         self, id: str, user_id: str, valves: dict
     ) -> Optional[dict]:
-
         try:
-            user = Users.get_user_by_id(user_id)
+            user = await Users.get_user_by_id(user_id)
             user_settings = user.settings.model_dump() if user.settings else {}
 
             # Check if user has "functions" and "valves" settings
@@ -237,52 +231,42 @@ class FunctionsTable:
             user_settings["functions"]["valves"][id] = valves
 
             # Update the user settings in the database
-            Users.update_user_by_id(user_id, {"settings": user_settings})
+            await Users.update_user_by_id(user_id, {"settings": user_settings})
 
             return user_settings["functions"]["valves"][id]
         except Exception as e:
             print(f"An error occurred: {e}")
             return None
 
-    def update_function_by_id(self, id: str, updated: dict) -> Optional[FunctionModel]:
-        with get_db() as db:
+    async def update_function_by_id(
+        self, id: str, updated: dict
+    ) -> Optional[FunctionModel]:
+        async with get_db() as db:
+            await db.execute(
+                update(Function)
+                .where(Function.id == id)
+                .values(**{**updated, "updated_at": int(time.time())})
+                .returning(Function.id)
+            )
+            await db.commit()
+            return await self.get_function_by_id(id)
 
-            try:
-                db.query(Function).filter_by(id=id).update(
-                    {
-                        **updated,
-                        "updated_at": int(time.time()),
-                    }
+    async def deactivate_all_functions(self) -> Optional[bool]:
+        async with get_db() as db:
+            await db.execute(
+                update(Function).values(
+                    is_active=False,
+                    updated_at=int(time.time()),
                 )
-                db.commit()
-                return self.get_function_by_id(id)
-            except Exception:
-                return None
+            )
+            return True
 
-    def deactivate_all_functions(self) -> Optional[bool]:
-        with get_db() as db:
+    async def delete_function_by_id(self, id: str) -> bool:
+        async with get_db() as db:
+            await db.execute(delete(Function).where(Function.id == id))
+            await db.commit()
 
-            try:
-                db.query(Function).update(
-                    {
-                        "is_active": False,
-                        "updated_at": int(time.time()),
-                    }
-                )
-                db.commit()
-                return True
-            except Exception:
-                return None
-
-    def delete_function_by_id(self, id: str) -> bool:
-        with get_db() as db:
-            try:
-                db.query(Function).filter_by(id=id).delete()
-                db.commit()
-
-                return True
-            except Exception:
-                return False
+            return True
 
 
 Functions = FunctionsTable()

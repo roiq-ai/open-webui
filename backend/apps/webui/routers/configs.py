@@ -1,25 +1,9 @@
-from fastapi import Response, Request
-from fastapi import Depends, FastAPI, HTTPException, status
-from datetime import datetime, timedelta
-from typing import Union
-
-from fastapi import APIRouter
-from pydantic import BaseModel
-import time
-import uuid
+from typing import List
 
 from config import BannerModel
-
-from apps.webui.models.users import Users
-
-from utils.utils import (
-    get_password_hash,
-    get_verified_user,
-    get_admin_user,
-    create_token,
-)
-from utils.misc import get_gravatar_url, validate_email_format
-from constants import ERROR_MESSAGES
+from fastapi import APIRouter, Depends, Request
+from pydantic import BaseModel
+from utils.utils import get_admin_user, get_verified_user
 
 router = APIRouter()
 
@@ -29,12 +13,12 @@ class SetDefaultModelsForm(BaseModel):
 
 
 class PromptSuggestion(BaseModel):
-    title: list[str]
+    title: List[str]
     content: str
 
 
 class SetDefaultSuggestionsForm(BaseModel):
-    suggestions: list[PromptSuggestion]
+    suggestions: List[PromptSuggestion]
 
 
 ############################
@@ -50,7 +34,7 @@ async def set_global_default_models(
     return request.app.state.config.DEFAULT_MODELS
 
 
-@router.post("/default/suggestions", response_model=list[PromptSuggestion])
+@router.post("/default/suggestions", response_model=List[PromptSuggestion])
 async def set_global_default_suggestions(
     request: Request,
     form_data: SetDefaultSuggestionsForm,
@@ -67,10 +51,10 @@ async def set_global_default_suggestions(
 
 
 class SetBannersForm(BaseModel):
-    banners: list[BannerModel]
+    banners: List[BannerModel]
 
 
-@router.post("/banners", response_model=list[BannerModel])
+@router.post("/banners", response_model=List[BannerModel])
 async def set_banners(
     request: Request,
     form_data: SetBannersForm,
@@ -81,7 +65,7 @@ async def set_banners(
     return request.app.state.config.BANNERS
 
 
-@router.get("/banners", response_model=list[BannerModel])
+@router.get("/banners", response_model=List[BannerModel])
 async def get_banners(
     request: Request,
     user=Depends(get_verified_user),

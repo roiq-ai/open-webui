@@ -1,4 +1,1 @@
-Generic single-database configuration.
-
-Create new migrations with
-DATABASE_URL=<replace with actual url> alembic revision --autogenerate -m "a description"
+Generic single-database configuration with an async dbapi.

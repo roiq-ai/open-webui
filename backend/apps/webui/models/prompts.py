@@ -1,12 +1,9 @@
-from pydantic import BaseModel, ConfigDict
-from typing import Optional
 import time
-
-from sqlalchemy import String, Column, BigInteger, Text
+from typing import List, Optional
 
 from apps.webui.internal.db import Base, get_db
-
-import json
+from pydantic import BaseModel, ConfigDict
+from sqlalchemy import BigInteger, Column, String, Text, delete, select, update
 
 ####################
 # Prompts DB Schema
@@ -45,8 +42,7 @@ class PromptForm(BaseModel):
 
 
 class PromptsTable:
-
-    def insert_new_prompt(
+    async def insert_new_prompt(
         self, user_id: str, form_data: PromptForm
     ) -> Optional[PromptModel]:
         prompt = PromptModel(
@@ -58,62 +54,50 @@ class PromptsTable:
                 "timestamp": int(time.time()),
             }
         )
+        async with get_db() as db:
+            result = Prompt(**prompt.dict())
+            db.add(result)
+            await db.commit()
+            await db.refresh(result)
+            if result:
+                return PromptModel.model_validate(result)
 
-        try:
-            with get_db() as db:
+    async def get_prompt_by_command(self, command: str) -> Optional[PromptModel]:
+        async with get_db() as db:
+            prompt = await db.execute(select(Prompt).where(Prompt.command == command))
+            return PromptModel.model_validate(prompt.scalar())
 
-                result = Prompt(**prompt.dict())
-                db.add(result)
-                db.commit()
-                db.refresh(result)
-                if result:
-                    return PromptModel.model_validate(result)
-                else:
-                    return None
-        except Exception as e:
-            return None
-
-    def get_prompt_by_command(self, command: str) -> Optional[PromptModel]:
-        try:
-            with get_db() as db:
-
-                prompt = db.query(Prompt).filter_by(command=command).first()
-                return PromptModel.model_validate(prompt)
-        except Exception:
-            return None
-
-    def get_prompts(self) -> list[PromptModel]:
-        with get_db() as db:
-
+    async def get_prompts(self) -> List[PromptModel]:
+        async with get_db() as db:
+            prompts = await db.execute(select(Prompt))
             return [
-                PromptModel.model_validate(prompt) for prompt in db.query(Prompt).all()
+                PromptModel.model_validate(prompt) for prompt in prompts.scalars().all()
             ]
 
-    def update_prompt_by_command(
+    async def update_prompt_by_command(
         self, command: str, form_data: PromptForm
     ) -> Optional[PromptModel]:
-        try:
-            with get_db() as db:
+        async with get_db() as db:
+            prompt = await db.execute(
+                update(Prompt)
+                .where(Prompt.command == command)
+                .values(
+                    title=form_data.title,
+                    content=form_data.content,
+                    timestamp=int(time.time()),
+                )
+                .returning(Prompt)
+            )
 
-                prompt = db.query(Prompt).filter_by(command=command).first()
-                prompt.title = form_data.title
-                prompt.content = form_data.content
-                prompt.timestamp = int(time.time())
-                db.commit()
-                return PromptModel.model_validate(prompt)
-        except Exception:
-            return None
+            await db.commit()
+            prompt = prompt.scalar()
+            return PromptModel.model_validate(prompt)
 
-    def delete_prompt_by_command(self, command: str) -> bool:
-        try:
-            with get_db() as db:
-
-                db.query(Prompt).filter_by(command=command).delete()
-                db.commit()
-
-                return True
-        except Exception:
-            return False
+    async def delete_prompt_by_command(self, command: str) -> bool:
+        async with get_db() as db:
+            await db.execute(delete(Prompt).where(Prompt.command == command))
+            await db.commit()
+            return True
 
 
 Prompts = PromptsTable()

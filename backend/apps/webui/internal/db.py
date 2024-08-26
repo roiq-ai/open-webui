@@ -1,20 +1,20 @@
-import os
-import logging
+import asyncio
 import json
-from contextlib import contextmanager
+import logging
+import os
+from contextlib import asynccontextmanager
+from typing import Any, Optional
 
-from peewee_migrate import Router
-from apps.webui.internal.wrappers import register_connection
-
-from typing import Optional, Any
-from typing_extensions import Self
-
-from sqlalchemy import create_engine, types, Dialect
+from config import DATA_DIR, DATABASE_URL, SRC_LOG_LEVELS
+from sqlalchemy import Dialect, types
+from sqlalchemy.ext.asyncio import (
+    async_scoped_session,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.sql.type_api import _T
-
-from config import SRC_LOG_LEVELS, DATA_DIR, DATABASE_URL, BACKEND_DIR
+from typing_extensions import Self
 
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["DB"])
@@ -50,61 +50,32 @@ if os.path.exists(f"{DATA_DIR}/ollama.db"):
 else:
     pass
 
-
 # Workaround to handle the peewee migration
 # This is required to ensure the peewee migration is handled before the alembic migration
-def handle_peewee_migration(DATABASE_URL):
-    try:
-        # Replace the postgresql:// with postgres:// and %40 with @ in the DATABASE_URL
-        db = register_connection(
-            DATABASE_URL.replace("postgresql://", "postgres://").replace("%40", "@")
-        )
-        migrate_dir = BACKEND_DIR / "apps" / "webui" / "internal" / "migrations"
-        router = Router(db, logger=log, migrate_dir=migrate_dir)
-        router.run()
-        db.close()
-
-        # check if db connection has been closed
-
-    except Exception as e:
-        log.error(f"Failed to initialize the database connection: {e}")
-        raise
-
-    finally:
-        # Properly closing the database connection
-        if db and not db.is_closed():
-            db.close()
-
-        # Assert if db connection has been closed
-        assert db.is_closed(), "Database connection is still open."
-
-
-handle_peewee_migration(DATABASE_URL)
 
 
 SQLALCHEMY_DATABASE_URL = DATABASE_URL
 if "sqlite" in SQLALCHEMY_DATABASE_URL:
-    engine = create_engine(
+    engine = create_async_engine(
         SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
     )
 else:
-    engine = create_engine(SQLALCHEMY_DATABASE_URL, pool_pre_ping=True)
+    engine = create_async_engine(SQLALCHEMY_DATABASE_URL, pool_pre_ping=True)
 
-
-SessionLocal = sessionmaker(
+SessionLocal = async_sessionmaker(
     autocommit=False, autoflush=False, bind=engine, expire_on_commit=False
 )
 Base = declarative_base()
-Session = scoped_session(SessionLocal)
+Session = async_scoped_session(SessionLocal, asyncio.current_task)
 
 
 # Dependency
-def get_session():
+async def get_session():
     db = SessionLocal()
     try:
         yield db
     finally:
-        db.close()
+        await db.close()
 
 
-get_db = contextmanager(get_session)
+get_db = asynccontextmanager(get_session)

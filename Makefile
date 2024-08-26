@@ -1,9 +1,17 @@
+RYE := $(shell command -v rye 2> /dev/null)
+BACKEND := $(shell pwd)/backend
 
 ifneq ($(shell which docker-compose 2>/dev/null),)
     DOCKER_COMPOSE := docker-compose
 else
     DOCKER_COMPOSE := docker compose
 endif
+
+format:
+	$(RYE) run black $(BACKEND)/
+	$(RYE) run isort --profile black $(BACKEND)/
+	$(RYE) run autoflake -i -r --ignore-init-module-imports \
+	--remove-all-unused-imports --remove-unused-variables $(BACKEND)
 
 install:
 	$(DOCKER_COMPOSE) up -d
@@ -31,3 +39,6 @@ update:
 	$(DOCKER_COMPOSE) up --build -d
 	$(DOCKER_COMPOSE) start
 
+.PHONY: test
+test:
+	$(RYE) run pytest $(BACKEND)/test

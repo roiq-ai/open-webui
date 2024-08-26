@@ -1,16 +1,15 @@
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi import HTTPException, status, Depends, Request
-
-from apps.webui.models.users import Users
-
-from typing import Union, Optional
-from constants import ERROR_MESSAGES
-from passlib.context import CryptContext
-from datetime import datetime, timedelta
-import jwt
-import uuid
 import logging
+import uuid
+from datetime import datetime, timedelta
+from typing import Optional, Union
+
 import config
+import jwt
+from apps.webui.models.users import Users
+from constants import ERROR_MESSAGES
+from fastapi import Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from passlib.context import CryptContext
 
 logging.getLogger("passlib").setLevel(logging.ERROR)
 
@@ -68,11 +67,11 @@ def get_http_authorization_cred(auth_header: str):
     try:
         scheme, credentials = auth_header.split(" ")
         return HTTPAuthorizationCredentials(scheme=scheme, credentials=credentials)
-    except Exception:
+    except:
         raise ValueError(ERROR_MESSAGES.INVALID_TOKEN)
 
 
-def get_current_user(
+async def get_current_user(
     request: Request,
     auth_token: HTTPAuthorizationCredentials = Depends(bearer_security),
 ):
@@ -89,19 +88,19 @@ def get_current_user(
 
     # auth by api key
     if token.startswith("sk-"):
-        return get_current_user_by_api_key(token)
+        return await get_current_user_by_api_key(token)
 
     # auth by jwt token
     data = decode_token(token)
-    if data is not None and "id" in data:
-        user = Users.get_user_by_id(data["id"])
+    if data != None and "id" in data:
+        user = await Users.get_user_by_id(data["id"])
         if user is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail=ERROR_MESSAGES.INVALID_TOKEN,
             )
         else:
-            Users.update_user_last_active_by_id(user.id)
+            await Users.update_user_last_active_by_id(user.id)
         return user
     else:
         raise HTTPException(
@@ -110,8 +109,8 @@ def get_current_user(
         )
 
 
-def get_current_user_by_api_key(api_key: str):
-    user = Users.get_user_by_api_key(api_key)
+async def get_current_user_by_api_key(api_key: str):
+    user = await Users.get_user_by_api_key(api_key)
 
     if user is None:
         raise HTTPException(
@@ -119,7 +118,7 @@ def get_current_user_by_api_key(api_key: str):
             detail=ERROR_MESSAGES.INVALID_TOKEN,
         )
     else:
-        Users.update_user_last_active_by_id(user.id)
+        await Users.update_user_last_active_by_id(user.id)
 
     return user
 

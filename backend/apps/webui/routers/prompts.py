@@ -1,15 +1,9 @@
-from fastapi import Depends, FastAPI, HTTPException, status
-from datetime import datetime, timedelta
-from typing import Union, Optional
+from typing import List, Optional
 
-from fastapi import APIRouter
-from pydantic import BaseModel
-import json
-
-from apps.webui.models.prompts import Prompts, PromptForm, PromptModel
-
-from utils.utils import get_verified_user, get_admin_user
+from apps.webui.models.prompts import PromptForm, PromptModel, Prompts
 from constants import ERROR_MESSAGES
+from fastapi import APIRouter, Depends, HTTPException, status
+from utils.utils import get_admin_user, get_verified_user
 
 router = APIRouter()
 
@@ -18,9 +12,9 @@ router = APIRouter()
 ############################
 
 
-@router.get("/", response_model=list[PromptModel])
+@router.get("/", response_model=List[PromptModel])
 async def get_prompts(user=Depends(get_verified_user)):
-    return Prompts.get_prompts()
+    return await Prompts.get_prompts()
 
 
 ############################
@@ -30,9 +24,9 @@ async def get_prompts(user=Depends(get_verified_user)):
 
 @router.post("/create", response_model=Optional[PromptModel])
 async def create_new_prompt(form_data: PromptForm, user=Depends(get_admin_user)):
-    prompt = Prompts.get_prompt_by_command(form_data.command)
-    if prompt is None:
-        prompt = Prompts.insert_new_prompt(user.id, form_data)
+    prompt = await Prompts.get_prompt_by_command(form_data.command)
+    if prompt == None:
+        prompt = await Prompts.insert_new_prompt(user.id, form_data)
 
         if prompt:
             return prompt
@@ -53,7 +47,7 @@ async def create_new_prompt(form_data: PromptForm, user=Depends(get_admin_user))
 
 @router.get("/command/{command}", response_model=Optional[PromptModel])
 async def get_prompt_by_command(command: str, user=Depends(get_verified_user)):
-    prompt = Prompts.get_prompt_by_command(f"/{command}")
+    prompt = await Prompts.get_prompt_by_command(f"/{command}")
 
     if prompt:
         return prompt
@@ -75,7 +69,7 @@ async def update_prompt_by_command(
     form_data: PromptForm,
     user=Depends(get_admin_user),
 ):
-    prompt = Prompts.update_prompt_by_command(f"/{command}", form_data)
+    prompt = await Prompts.update_prompt_by_command(f"/{command}", form_data)
     if prompt:
         return prompt
     else:
@@ -92,5 +86,5 @@ async def update_prompt_by_command(
 
 @router.delete("/command/{command}/delete", response_model=bool)
 async def delete_prompt_by_command(command: str, user=Depends(get_admin_user)):
-    result = Prompts.delete_prompt_by_command(f"/{command}")
+    result = await Prompts.delete_prompt_by_command(f"/{command}")
     return result

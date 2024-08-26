@@ -1,15 +1,12 @@
-from pydantic import BaseModel, ConfigDict
-from typing import Optional
-import time
+import json
 import logging
-
-from sqlalchemy import String, Column, BigInteger, Text
+import time
+from typing import List, Optional
 
 from apps.webui.internal.db import Base, get_db
-
-import json
-
 from config import SRC_LOG_LEVELS
+from pydantic import BaseModel, ConfigDict
+from sqlalchemy import BigInteger, Column, String, Text, delete, select, update
 
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["MODELS"])
@@ -70,12 +67,10 @@ class DocumentForm(DocumentUpdateForm):
 
 
 class DocumentsTable:
-
-    def insert_new_doc(
+    async def insert_new_doc(
         self, user_id: str, form_data: DocumentForm
     ) -> Optional[DocumentModel]:
-        with get_db() as db:
-
+        async with get_db() as db:
             document = DocumentModel(
                 **{
                     **form_data.model_dump(),
@@ -84,84 +79,67 @@ class DocumentsTable:
                 }
             )
 
-            try:
-                result = Document(**document.model_dump())
-                db.add(result)
-                db.commit()
-                db.refresh(result)
-                if result:
-                    return DocumentModel.model_validate(result)
-                else:
-                    return None
-            except Exception:
-                return None
+            result = Document(**document.model_dump())
+            db.add(result)
+            db.commit()
+            db.refresh(result)
+            if result:
+                return DocumentModel.model_validate(result)
 
-    def get_doc_by_name(self, name: str) -> Optional[DocumentModel]:
-        try:
-            with get_db() as db:
+    async def get_doc_by_name(self, name: str) -> Optional[DocumentModel]:
+        async with get_db() as db:
+            doc = await db.execute(select(Document).where(Document.name == name))
 
-                document = db.query(Document).filter_by(name=name).first()
-                return DocumentModel.model_validate(document) if document else None
-        except Exception:
-            return None
+            document = doc.scalar()
+            return DocumentModel.model_validate(document) if document else None
 
-    def get_docs(self) -> list[DocumentModel]:
-        with get_db() as db:
+    async def get_docs(self) -> List[DocumentModel]:
+        async with get_db() as db:
+            docs = await db.execute(select(Document))
 
-            return [
-                DocumentModel.model_validate(doc) for doc in db.query(Document).all()
-            ]
+            return [DocumentModel.model_validate(doc) for doc in docs.scalars().all()]
 
-    def update_doc_by_name(
+    async def update_doc_by_name(
         self, name: str, form_data: DocumentUpdateForm
     ) -> Optional[DocumentModel]:
-        try:
-            with get_db() as db:
-
-                db.query(Document).filter_by(name=name).update(
-                    {
-                        "title": form_data.title,
-                        "name": form_data.name,
-                        "timestamp": int(time.time()),
-                    }
+        async with get_db() as db:
+            await db.execute(
+                update(Document)
+                .where(Document.name == name)
+                .values(
+                    title=form_data.title,
+                    name=form_data.name,
+                    timestamp=int(time.time),
                 )
-                db.commit()
-                return self.get_doc_by_name(form_data.name)
-        except Exception as e:
-            log.exception(e)
-            return None
+            )
 
-    def update_doc_content_by_name(
+            await db.commit()
+            return await self.get_doc_by_name(form_data.name)
+
+    async def update_doc_content_by_name(
         self, name: str, updated: dict
     ) -> Optional[DocumentModel]:
-        try:
-            doc = self.get_doc_by_name(name)
-            doc_content = json.loads(doc.content if doc.content else "{}")
-            doc_content = {**doc_content, **updated}
+        doc = await self.get_doc_by_name(name)
+        doc_content = json.loads(doc.content if doc.content else "{}")
+        doc_content = {**doc_content, **updated}
 
-            with get_db() as db:
-
-                db.query(Document).filter_by(name=name).update(
-                    {
-                        "content": json.dumps(doc_content),
-                        "timestamp": int(time.time()),
-                    }
+        async with get_db() as db:
+            await db.execute(
+                update(Document)
+                .where(Document.name == name)
+                .values(
+                    content=json.dumps(doc_content),
+                    timestamp=int(time.time()),
                 )
-                db.commit()
-                return self.get_doc_by_name(name)
-        except Exception as e:
-            log.exception(e)
-            return None
+            )
+            await db.commit()
+            return await self.get_doc_by_name(name)
 
-    def delete_doc_by_name(self, name: str) -> bool:
-        try:
-            with get_db() as db:
-
-                db.query(Document).filter_by(name=name).delete()
-                db.commit()
-                return True
-        except Exception:
-            return False
+    async def delete_doc_by_name(self, name: str) -> bool:
+        async with get_db() as db:
+            await db.execute(delete(Document).where(Document.name == name))
+            await db.commit()
+            return True
 
 
 Documents = DocumentsTable()

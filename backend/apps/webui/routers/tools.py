@@ -1,20 +1,14 @@
-from fastapi import Depends, HTTPException, status, Request
-from typing import Optional
-
-from fastapi import APIRouter
-
-from apps.webui.models.tools import Tools, ToolForm, ToolModel, ToolResponse
-from apps.webui.utils import load_toolkit_module_by_id
-
-from utils.utils import get_admin_user, get_verified_user
-from utils.tools import get_tools_specs
-from constants import ERROR_MESSAGES
-
 import os
 from pathlib import Path
+from typing import List, Optional
 
-from config import DATA_DIR, CACHE_DIR
-
+from apps.webui.models.tools import ToolForm, ToolModel, ToolResponse, Tools
+from apps.webui.utils import load_toolkit_module_by_id
+from config import CACHE_DIR, DATA_DIR
+from constants import ERROR_MESSAGES
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from utils.tools import get_tools_specs
+from utils.utils import get_admin_user, get_verified_user
 
 TOOLS_DIR = f"{DATA_DIR}/tools"
 os.makedirs(TOOLS_DIR, exist_ok=True)
@@ -27,9 +21,9 @@ router = APIRouter()
 ############################
 
 
-@router.get("/", response_model=list[ToolResponse])
+@router.get("/", response_model=List[ToolResponse])
 async def get_toolkits(user=Depends(get_verified_user)):
-    toolkits = [toolkit for toolkit in Tools.get_tools()]
+    toolkits = [toolkit for toolkit in await Tools.get_tools()]
     return toolkits
 
 
@@ -38,9 +32,9 @@ async def get_toolkits(user=Depends(get_verified_user)):
 ############################
 
 
-@router.get("/export", response_model=list[ToolModel])
+@router.get("/export", response_model=List[ToolModel])
 async def get_toolkits(user=Depends(get_admin_user)):
-    toolkits = [toolkit for toolkit in Tools.get_tools()]
+    toolkits = [toolkit for toolkit in await Tools.get_tools()]
     return toolkits
 
 
@@ -63,8 +57,8 @@ async def create_new_toolkit(
 
     form_data.id = form_data.id.lower()
 
-    toolkit = Tools.get_tool_by_id(form_data.id)
-    if toolkit is None:
+    toolkit = await Tools.get_tool_by_id(form_data.id)
+    if toolkit == None:
         toolkit_path = os.path.join(TOOLS_DIR, f"{form_data.id}.py")
         try:
             with open(toolkit_path, "w") as tool_file:
@@ -93,7 +87,7 @@ async def create_new_toolkit(
             print(e)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=ERROR_MESSAGES.DEFAULT(str(e)),
+                detail=ERROR_MESSAGES.DEFAULT(e),
             )
     else:
         raise HTTPException(
@@ -109,7 +103,7 @@ async def create_new_toolkit(
 
 @router.get("/id/{id}", response_model=Optional[ToolModel])
 async def get_toolkit_by_id(id: str, user=Depends(get_admin_user)):
-    toolkit = Tools.get_tool_by_id(id)
+    toolkit = await Tools.get_tool_by_id(id)
 
     if toolkit:
         return toolkit
@@ -152,7 +146,7 @@ async def update_toolkit_by_id(
         }
 
         print(updated)
-        toolkit = Tools.update_tool_by_id(id, updated)
+        toolkit = await Tools.update_tool_by_id(id, updated)
 
         if toolkit:
             return toolkit
@@ -165,7 +159,7 @@ async def update_toolkit_by_id(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=ERROR_MESSAGES.DEFAULT(str(e)),
+            detail=ERROR_MESSAGES.DEFAULT(e),
         )
 
 
@@ -176,7 +170,7 @@ async def update_toolkit_by_id(
 
 @router.delete("/id/{id}/delete", response_model=bool)
 async def delete_toolkit_by_id(request: Request, id: str, user=Depends(get_admin_user)):
-    result = Tools.delete_tool_by_id(id)
+    result = await Tools.delete_tool_by_id(id)
 
     if result:
         TOOLS = request.app.state.TOOLS
@@ -197,15 +191,15 @@ async def delete_toolkit_by_id(request: Request, id: str, user=Depends(get_admin
 
 @router.get("/id/{id}/valves", response_model=Optional[dict])
 async def get_toolkit_valves_by_id(id: str, user=Depends(get_admin_user)):
-    toolkit = Tools.get_tool_by_id(id)
+    toolkit = await Tools.get_tool_by_id(id)
     if toolkit:
         try:
-            valves = Tools.get_tool_valves_by_id(id)
+            valves = await Tools.get_tool_valves_by_id(id)
             return valves
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=ERROR_MESSAGES.DEFAULT(str(e)),
+                detail=ERROR_MESSAGES.DEFAULT(e),
             )
     else:
         raise HTTPException(
@@ -223,12 +217,12 @@ async def get_toolkit_valves_by_id(id: str, user=Depends(get_admin_user)):
 async def get_toolkit_valves_spec_by_id(
     request: Request, id: str, user=Depends(get_admin_user)
 ):
-    toolkit = Tools.get_tool_by_id(id)
+    toolkit = await Tools.get_tool_by_id(id)
     if toolkit:
         if id in request.app.state.TOOLS:
             toolkit_module = request.app.state.TOOLS[id]
         else:
-            toolkit_module, _ = load_toolkit_module_by_id(id)
+            toolkit_module, frontmatter = load_toolkit_module_by_id(id)
             request.app.state.TOOLS[id] = toolkit_module
 
         if hasattr(toolkit_module, "Valves"):
@@ -251,12 +245,12 @@ async def get_toolkit_valves_spec_by_id(
 async def update_toolkit_valves_by_id(
     request: Request, id: str, form_data: dict, user=Depends(get_admin_user)
 ):
-    toolkit = Tools.get_tool_by_id(id)
+    toolkit = await Tools.get_tool_by_id(id)
     if toolkit:
         if id in request.app.state.TOOLS:
             toolkit_module = request.app.state.TOOLS[id]
         else:
-            toolkit_module, _ = load_toolkit_module_by_id(id)
+            toolkit_module, frontmatter = load_toolkit_module_by_id(id)
             request.app.state.TOOLS[id] = toolkit_module
 
         if hasattr(toolkit_module, "Valves"):
@@ -265,13 +259,13 @@ async def update_toolkit_valves_by_id(
             try:
                 form_data = {k: v for k, v in form_data.items() if v is not None}
                 valves = Valves(**form_data)
-                Tools.update_tool_valves_by_id(id, valves.model_dump())
+                await Tools.update_tool_valves_by_id(id, valves.model_dump())
                 return valves.model_dump()
             except Exception as e:
                 print(e)
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=ERROR_MESSAGES.DEFAULT(str(e)),
+                    detail=ERROR_MESSAGES.DEFAULT(e),
                 )
         else:
             raise HTTPException(
@@ -293,15 +287,15 @@ async def update_toolkit_valves_by_id(
 
 @router.get("/id/{id}/valves/user", response_model=Optional[dict])
 async def get_toolkit_user_valves_by_id(id: str, user=Depends(get_verified_user)):
-    toolkit = Tools.get_tool_by_id(id)
+    toolkit = await Tools.get_tool_by_id(id)
     if toolkit:
         try:
-            user_valves = Tools.get_user_valves_by_id_and_user_id(id, user.id)
+            user_valves = await Tools.get_user_valves_by_id_and_user_id(id, user.id)
             return user_valves
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=ERROR_MESSAGES.DEFAULT(str(e)),
+                detail=ERROR_MESSAGES.DEFAULT(e),
             )
     else:
         raise HTTPException(
@@ -314,12 +308,12 @@ async def get_toolkit_user_valves_by_id(id: str, user=Depends(get_verified_user)
 async def get_toolkit_user_valves_spec_by_id(
     request: Request, id: str, user=Depends(get_verified_user)
 ):
-    toolkit = Tools.get_tool_by_id(id)
+    toolkit = await Tools.get_tool_by_id(id)
     if toolkit:
         if id in request.app.state.TOOLS:
             toolkit_module = request.app.state.TOOLS[id]
         else:
-            toolkit_module, _ = load_toolkit_module_by_id(id)
+            toolkit_module, frontmatter = load_toolkit_module_by_id(id)
             request.app.state.TOOLS[id] = toolkit_module
 
         if hasattr(toolkit_module, "UserValves"):
@@ -337,13 +331,13 @@ async def get_toolkit_user_valves_spec_by_id(
 async def update_toolkit_user_valves_by_id(
     request: Request, id: str, form_data: dict, user=Depends(get_verified_user)
 ):
-    toolkit = Tools.get_tool_by_id(id)
+    toolkit = await Tools.get_tool_by_id(id)
 
     if toolkit:
         if id in request.app.state.TOOLS:
             toolkit_module = request.app.state.TOOLS[id]
         else:
-            toolkit_module, _ = load_toolkit_module_by_id(id)
+            toolkit_module, frontmatter = load_toolkit_module_by_id(id)
             request.app.state.TOOLS[id] = toolkit_module
 
         if hasattr(toolkit_module, "UserValves"):
@@ -352,7 +346,7 @@ async def update_toolkit_user_valves_by_id(
             try:
                 form_data = {k: v for k, v in form_data.items() if v is not None}
                 user_valves = UserValves(**form_data)
-                Tools.update_user_valves_by_id_and_user_id(
+                await Tools.update_user_valves_by_id_and_user_id(
                     id, user.id, user_valves.model_dump()
                 )
                 return user_valves.model_dump()
@@ -360,7 +354,7 @@ async def update_toolkit_user_valves_by_id(
                 print(e)
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=ERROR_MESSAGES.DEFAULT(str(e)),
+                    detail=ERROR_MESSAGES.DEFAULT(e),
                 )
         else:
             raise HTTPException(

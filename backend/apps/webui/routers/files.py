@@ -1,42 +1,16 @@
-from fastapi import (
-    Depends,
-    FastAPI,
-    HTTPException,
-    status,
-    Request,
-    UploadFile,
-    File,
-    Form,
-)
-
-
-from datetime import datetime, timedelta
-from typing import Union, Optional
-from pathlib import Path
-
-from fastapi import APIRouter
-from fastapi.responses import StreamingResponse, JSONResponse, FileResponse
-
-from pydantic import BaseModel
-import json
-
-from apps.webui.models.files import (
-    Files,
-    FileForm,
-    FileModel,
-    FileModelResponse,
-)
-from utils.utils import get_verified_user, get_admin_user
-from constants import ERROR_MESSAGES
-
-from importlib import util
+import logging
 import os
+import shutil
 import uuid
-import os, shutil, logging, re
+from pathlib import Path
+from typing import List, Optional
 
-
+from apps.webui.models.files import FileForm, FileModel, Files
 from config import SRC_LOG_LEVELS, UPLOAD_DIR
-
+from constants import ERROR_MESSAGES
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi.responses import FileResponse
+from utils.utils import get_admin_user, get_verified_user
 
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["MODELS"])
@@ -50,7 +24,7 @@ router = APIRouter()
 
 
 @router.post("/")
-def upload_file(file: UploadFile = File(...), user=Depends(get_verified_user)):
+async def upload_file(file: UploadFile = File(...), user=Depends(get_verified_user)):
     log.info(f"file.content_type: {file.content_type}")
     try:
         unsanitized_filename = file.filename
@@ -67,7 +41,7 @@ def upload_file(file: UploadFile = File(...), user=Depends(get_verified_user)):
             f.write(contents)
             f.close()
 
-        file = Files.insert_new_file(
+        file = await Files.insert_new_file(
             user.id,
             FileForm(
                 **{
@@ -104,7 +78,7 @@ def upload_file(file: UploadFile = File(...), user=Depends(get_verified_user)):
 ############################
 
 
-@router.get("/", response_model=list[FileModel])
+@router.get("/", response_model=List[FileModel])
 async def list_files(user=Depends(get_verified_user)):
     files = Files.get_files()
     return files
@@ -154,7 +128,7 @@ async def delete_all_files(user=Depends(get_admin_user)):
 
 @router.get("/{id}", response_model=Optional[FileModel])
 async def get_file_by_id(id: str, user=Depends(get_verified_user)):
-    file = Files.get_file_by_id(id)
+    file = await Files.get_file_by_id(id)
 
     if file:
         return file
@@ -172,7 +146,7 @@ async def get_file_by_id(id: str, user=Depends(get_verified_user)):
 
 @router.get("/{id}/content", response_model=Optional[FileModel])
 async def get_file_content_by_id(id: str, user=Depends(get_verified_user)):
-    file = Files.get_file_by_id(id)
+    file = await Files.get_file_by_id(id)
 
     if file:
         file_path = Path(file.meta["path"])
@@ -195,7 +169,7 @@ async def get_file_content_by_id(id: str, user=Depends(get_verified_user)):
 
 @router.get("/{id}/content/{file_name}", response_model=Optional[FileModel])
 async def get_file_content_by_id(id: str, user=Depends(get_verified_user)):
-    file = Files.get_file_by_id(id)
+    file = await Files.get_file_by_id(id)
 
     if file:
         file_path = Path(file.meta["path"])
@@ -223,10 +197,10 @@ async def get_file_content_by_id(id: str, user=Depends(get_verified_user)):
 
 @router.delete("/{id}")
 async def delete_file_by_id(id: str, user=Depends(get_verified_user)):
-    file = Files.get_file_by_id(id)
+    file = await Files.get_file_by_id(id)
 
     if file:
-        result = Files.delete_file_by_id(id)
+        result = await Files.delete_file_by_id(id)
         if result:
             return {"message": "File deleted successfully"}
         else:

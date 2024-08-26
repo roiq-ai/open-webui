@@ -108,8 +108,10 @@ class UsersTable:
 
     async def get_user_by_id(self, id: str) -> Optional[UserModel]:
         async with get_db() as db:
-            user = await db.get(User, id)
-            return UserModel.model_validate(user)
+            user = await db.execute(select(User).where(User.id == id))
+            user = user.scalar()
+            if user:
+                return UserModel.model_validate(user)
 
     async def get_user_by_api_key(self, api_key: str) -> Optional[UserModel]:
         async with get_db() as db:

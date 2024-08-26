@@ -110,7 +110,7 @@ class AuthsTable:
             result = Auth(**auth.model_dump())
             db.add(result)
 
-            user = Users.insert_new_user(
+            user = await Users.insert_new_user(
                 id, name, email, profile_image_url, role, oauth_sub
             )
 

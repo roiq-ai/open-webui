@@ -5,7 +5,7 @@ import os
 import random
 import re
 import time
-from typing import List, Optional, Union
+from typing import Optional, Union
 from urllib.parse import urlparse
 
 import aiohttp
@@ -13,6 +13,7 @@ import requests
 from apps.webui.models.models import Models
 from config import (
     AIOHTTP_CLIENT_TIMEOUT,
+    CORS_ALLOW_ORIGIN,
     ENABLE_MODEL_FILTER,
     ENABLE_OLLAMA_API,
     MODEL_FILTER_LIST,
@@ -27,8 +28,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict
 from starlette.background import BackgroundTask
-from utils.misc import add_or_update_system_message, calculate_sha256
-from utils.task import prompt_template
+from utils.misc import (
+    apply_model_params_to_body_ollama,
+    apply_model_params_to_body_openai,
+    apply_model_system_prompt_to_body,
+    calculate_sha256,
+)
 from utils.utils import get_admin_user, get_verified_user
 
 log = logging.getLogger(__name__)
@@ -37,7 +42,7 @@ log.setLevel(SRC_LOG_LEVELS["OLLAMA"])
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ALLOW_ORIGIN,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -96,7 +101,7 @@ async def get_ollama_api_urls(user=Depends(get_admin_user)):
 
 
 class UrlUpdateForm(BaseModel):
-    urls: List[str]
+    urls: list[str]
 
 
 @app.post("/urls/update")
@@ -129,13 +134,17 @@ async def cleanup_response(
         await session.close()
 
 
-async def post_streaming_url(url: str, payload: str, stream: bool = True):
+async def post_streaming_url(url: str, payload: Union[str, bytes], stream: bool = True):
     r = None
     try:
         session = aiohttp.ClientSession(
             trust_env=True, timeout=aiohttp.ClientTimeout(total=AIOHTTP_CLIENT_TIMEOUT)
         )
-        r = await session.post(url, data=payload)
+        r = await session.post(
+            url,
+            data=payload,
+            headers={"Content-Type": "application/json"},
+        )
         r.raise_for_status()
 
         if stream:
@@ -159,7 +168,7 @@ async def post_streaming_url(url: str, payload: str, stream: bool = True):
                 res = await r.json()
                 if "error" in res:
                     error_detail = f"Ollama: {res['error']}"
-            except:
+            except Exception:
                 error_detail = f"Ollama: {e}"
 
         raise HTTPException(
@@ -214,7 +223,7 @@ async def get_all_models():
 async def get_ollama_tags(
     url_idx: Optional[int] = None, user=Depends(get_verified_user)
 ):
-    if url_idx == None:
+    if url_idx is None:
         models = await get_all_models()
 
         if app.state.config.ENABLE_MODEL_FILTER:
@@ -245,7 +254,7 @@ async def get_ollama_tags(
                     res = r.json()
                     if "error" in res:
                         error_detail = f"Ollama: {res['error']}"
-                except:
+                except Exception:
                     error_detail = f"Ollama: {e}"
 
             raise HTTPException(
@@ -258,7 +267,7 @@ async def get_ollama_tags(
 @app.get("/api/version/{url_idx}")
 async def get_ollama_versions(url_idx: Optional[int] = None):
     if app.state.config.ENABLE_OLLAMA_API:
-        if url_idx == None:
+        if url_idx is None:
             # returns lowest version
             tasks = [
                 fetch_url(f"{url}/api/version")
@@ -298,7 +307,7 @@ async def get_ollama_versions(url_idx: Optional[int] = None):
                         res = r.json()
                         if "error" in res:
                             error_detail = f"Ollama: {res['error']}"
-                    except:
+                    except Exception:
                         error_detail = f"Ollama: {e}"
 
                 raise HTTPException(
@@ -321,8 +330,6 @@ async def pull_model(
     url = app.state.config.OLLAMA_BASE_URLS[url_idx]
     log.info(f"url: {url}")
 
-    r = None
-
     # Admin should be able to pull models from any source
     payload = {**form_data.model_dump(exclude_none=True), "insecure": True}
 
@@ -342,7 +349,7 @@ async def push_model(
     url_idx: Optional[int] = None,
     user=Depends(get_admin_user),
 ):
-    if url_idx == None:
+    if url_idx is None:
         if form_data.name in app.state.MODELS:
             url_idx = app.state.MODELS[form_data.name]["urls"][0]
         else:
@@ -392,7 +399,7 @@ async def copy_model(
     url_idx: Optional[int] = None,
     user=Depends(get_admin_user),
 ):
-    if url_idx == None:
+    if url_idx is None:
         if form_data.source in app.state.MODELS:
             url_idx = app.state.MODELS[form_data.source]["urls"][0]
         else:
@@ -403,13 +410,14 @@ async def copy_model(
 
     url = app.state.config.OLLAMA_BASE_URLS[url_idx]
     log.info(f"url: {url}")
+    r = requests.request(
+        method="POST",
+        url=f"{url}/api/copy",
+        headers={"Content-Type": "application/json"},
+        data=form_data.model_dump_json(exclude_none=True).encode(),
+    )
 
     try:
-        r = requests.request(
-            method="POST",
-            url=f"{url}/api/copy",
-            data=form_data.model_dump_json(exclude_none=True).encode(),
-        )
         r.raise_for_status()
 
         log.debug(f"r.text: {r.text}")
@@ -423,7 +431,7 @@ async def copy_model(
                 res = r.json()
                 if "error" in res:
                     error_detail = f"Ollama: {res['error']}"
-            except:
+            except Exception:
                 error_detail = f"Ollama: {e}"
 
         raise HTTPException(
@@ -439,7 +447,7 @@ async def delete_model(
     url_idx: Optional[int] = None,
     user=Depends(get_admin_user),
 ):
-    if url_idx == None:
+    if url_idx is None:
         if form_data.name in app.state.MODELS:
             url_idx = app.state.MODELS[form_data.name]["urls"][0]
         else:
@@ -451,12 +459,13 @@ async def delete_model(
     url = app.state.config.OLLAMA_BASE_URLS[url_idx]
     log.info(f"url: {url}")
 
+    r = requests.request(
+        method="DELETE",
+        url=f"{url}/api/delete",
+        headers={"Content-Type": "application/json"},
+        data=form_data.model_dump_json(exclude_none=True).encode(),
+    )
     try:
-        r = requests.request(
-            method="DELETE",
-            url=f"{url}/api/delete",
-            data=form_data.model_dump_json(exclude_none=True).encode(),
-        )
         r.raise_for_status()
 
         log.debug(f"r.text: {r.text}")
@@ -470,7 +479,7 @@ async def delete_model(
                 res = r.json()
                 if "error" in res:
                     error_detail = f"Ollama: {res['error']}"
-            except:
+            except Exception:
                 error_detail = f"Ollama: {e}"
 
         raise HTTPException(
@@ -491,12 +500,13 @@ async def show_model_info(form_data: ModelNameForm, user=Depends(get_verified_us
     url = app.state.config.OLLAMA_BASE_URLS[url_idx]
     log.info(f"url: {url}")
 
+    r = requests.request(
+        method="POST",
+        url=f"{url}/api/show",
+        headers={"Content-Type": "application/json"},
+        data=form_data.model_dump_json(exclude_none=True).encode(),
+    )
     try:
-        r = requests.request(
-            method="POST",
-            url=f"{url}/api/show",
-            data=form_data.model_dump_json(exclude_none=True).encode(),
-        )
         r.raise_for_status()
 
         return r.json()
@@ -508,7 +518,7 @@ async def show_model_info(form_data: ModelNameForm, user=Depends(get_verified_us
                 res = r.json()
                 if "error" in res:
                     error_detail = f"Ollama: {res['error']}"
-            except:
+            except Exception:
                 error_detail = f"Ollama: {e}"
 
         raise HTTPException(
@@ -531,7 +541,7 @@ async def generate_embeddings(
     url_idx: Optional[int] = None,
     user=Depends(get_verified_user),
 ):
-    if url_idx == None:
+    if url_idx is None:
         model = form_data.model
 
         if ":" not in model:
@@ -548,12 +558,13 @@ async def generate_embeddings(
     url = app.state.config.OLLAMA_BASE_URLS[url_idx]
     log.info(f"url: {url}")
 
+    r = requests.request(
+        method="POST",
+        url=f"{url}/api/embeddings",
+        headers={"Content-Type": "application/json"},
+        data=form_data.model_dump_json(exclude_none=True).encode(),
+    )
     try:
-        r = requests.request(
-            method="POST",
-            url=f"{url}/api/embeddings",
-            data=form_data.model_dump_json(exclude_none=True).encode(),
-        )
         r.raise_for_status()
 
         return r.json()
@@ -565,7 +576,7 @@ async def generate_embeddings(
                 res = r.json()
                 if "error" in res:
                     error_detail = f"Ollama: {res['error']}"
-            except:
+            except Exception:
                 error_detail = f"Ollama: {e}"
 
         raise HTTPException(
@@ -580,7 +591,7 @@ def generate_ollama_embeddings(
 ):
     log.info(f"generate_ollama_embeddings {form_data}")
 
-    if url_idx == None:
+    if url_idx is None:
         model = form_data.model
 
         if ":" not in model:
@@ -597,12 +608,13 @@ def generate_ollama_embeddings(
     url = app.state.config.OLLAMA_BASE_URLS[url_idx]
     log.info(f"url: {url}")
 
+    r = requests.request(
+        method="POST",
+        url=f"{url}/api/embeddings",
+        headers={"Content-Type": "application/json"},
+        data=form_data.model_dump_json(exclude_none=True).encode(),
+    )
     try:
-        r = requests.request(
-            method="POST",
-            url=f"{url}/api/embeddings",
-            data=form_data.model_dump_json(exclude_none=True).encode(),
-        )
         r.raise_for_status()
 
         data = r.json()
@@ -612,7 +624,7 @@ def generate_ollama_embeddings(
         if "embedding" in data:
             return data["embedding"]
         else:
-            raise "Something went wrong :/"
+            raise Exception("Something went wrong :/")
     except Exception as e:
         log.exception(e)
         error_detail = "Open WebUI: Server Connection Error"
@@ -621,16 +633,16 @@ def generate_ollama_embeddings(
                 res = r.json()
                 if "error" in res:
                     error_detail = f"Ollama: {res['error']}"
-            except:
+            except Exception:
                 error_detail = f"Ollama: {e}"
 
-        raise error_detail
+        raise Exception(error_detail)
 
 
 class GenerateCompletionForm(BaseModel):
     model: str
     prompt: str
-    images: Optional[List[str]] = None
+    images: Optional[list[str]] = None
     format: Optional[str] = None
     options: Optional[dict] = None
     system: Optional[str] = None
@@ -648,7 +660,7 @@ async def generate_completion(
     url_idx: Optional[int] = None,
     user=Depends(get_verified_user),
 ):
-    if url_idx == None:
+    if url_idx is None:
         model = form_data.model
 
         if ":" not in model:
@@ -673,17 +685,29 @@ async def generate_completion(
 class ChatMessage(BaseModel):
     role: str
     content: str
-    images: Optional[List[str]] = None
+    images: Optional[list[str]] = None
 
 
 class GenerateChatCompletionForm(BaseModel):
     model: str
-    messages: List[ChatMessage]
+    messages: list[ChatMessage]
     format: Optional[str] = None
     options: Optional[dict] = None
     template: Optional[str] = None
     stream: Optional[bool] = None
     keep_alive: Optional[Union[int, str]] = None
+
+
+def get_ollama_url(url_idx: Optional[int], model: str):
+    if url_idx is None:
+        if model not in app.state.MODELS:
+            raise HTTPException(
+                status_code=400,
+                detail=ERROR_MESSAGES.MODEL_NOT_FOUND(model),
+            )
+        url_idx = random.choice(app.state.MODELS[model]["urls"])
+    url = app.state.config.OLLAMA_BASE_URLS[url_idx]
+    return url
 
 
 @app.post("/api/chat")
@@ -693,15 +717,8 @@ async def generate_chat_completion(
     url_idx: Optional[int] = None,
     user=Depends(get_verified_user),
 ):
-    log.debug(
-        "form_data.model_dump_json(exclude_none=True).encode(): {0} ".format(
-            form_data.model_dump_json(exclude_none=True).encode()
-        )
-    )
-
-    payload = {
-        **form_data.model_dump(exclude_none=True, exclude=["metadata"]),
-    }
+    payload = {**form_data.model_dump(exclude_none=True)}
+    log.debug(f"{payload = }")
     if "metadata" in payload:
         del payload["metadata"]
 
@@ -712,179 +729,21 @@ async def generate_chat_completion(
         if model_info.base_model_id:
             payload["model"] = model_info.base_model_id
 
-        model_info.params = model_info.params.model_dump()
+        params = model_info.params.model_dump()
 
-        if model_info.params:
+        if params:
             if payload.get("options") is None:
                 payload["options"] = {}
 
-            if (
-                model_info.params.get("mirostat", None)
-                and payload["options"].get("mirostat") is None
-            ):
-                payload["options"]["mirostat"] = model_info.params.get("mirostat", None)
-
-            if (
-                model_info.params.get("mirostat_eta", None)
-                and payload["options"].get("mirostat_eta") is None
-            ):
-                payload["options"]["mirostat_eta"] = model_info.params.get(
-                    "mirostat_eta", None
-                )
-
-            if (
-                model_info.params.get("mirostat_tau", None)
-                and payload["options"].get("mirostat_tau") is None
-            ):
-                payload["options"]["mirostat_tau"] = model_info.params.get(
-                    "mirostat_tau", None
-                )
-
-            if (
-                model_info.params.get("num_ctx", None)
-                and payload["options"].get("num_ctx") is None
-            ):
-                payload["options"]["num_ctx"] = model_info.params.get("num_ctx", None)
-
-            if (
-                model_info.params.get("num_batch", None)
-                and payload["options"].get("num_batch") is None
-            ):
-                payload["options"]["num_batch"] = model_info.params.get(
-                    "num_batch", None
-                )
-
-            if (
-                model_info.params.get("num_keep", None)
-                and payload["options"].get("num_keep") is None
-            ):
-                payload["options"]["num_keep"] = model_info.params.get("num_keep", None)
-
-            if (
-                model_info.params.get("repeat_last_n", None)
-                and payload["options"].get("repeat_last_n") is None
-            ):
-                payload["options"]["repeat_last_n"] = model_info.params.get(
-                    "repeat_last_n", None
-                )
-
-            if (
-                model_info.params.get("frequency_penalty", None)
-                and payload["options"].get("frequency_penalty") is None
-            ):
-                payload["options"]["repeat_penalty"] = model_info.params.get(
-                    "frequency_penalty", None
-                )
-
-            if (
-                model_info.params.get("temperature", None)
-                and payload["options"].get("temperature") is None
-            ):
-                payload["options"]["temperature"] = model_info.params.get(
-                    "temperature", None
-                )
-
-            if (
-                model_info.params.get("seed", None)
-                and payload["options"].get("seed") is None
-            ):
-                payload["options"]["seed"] = model_info.params.get("seed", None)
-
-            if (
-                model_info.params.get("stop", None)
-                and payload["options"].get("stop") is None
-            ):
-                payload["options"]["stop"] = (
-                    [
-                        bytes(stop, "utf-8").decode("unicode_escape")
-                        for stop in model_info.params["stop"]
-                    ]
-                    if model_info.params.get("stop", None)
-                    else None
-                )
-
-            if (
-                model_info.params.get("tfs_z", None)
-                and payload["options"].get("tfs_z") is None
-            ):
-                payload["options"]["tfs_z"] = model_info.params.get("tfs_z", None)
-
-            if (
-                model_info.params.get("max_tokens", None)
-                and payload["options"].get("max_tokens") is None
-            ):
-                payload["options"]["num_predict"] = model_info.params.get(
-                    "max_tokens", None
-                )
-
-            if (
-                model_info.params.get("top_k", None)
-                and payload["options"].get("top_k") is None
-            ):
-                payload["options"]["top_k"] = model_info.params.get("top_k", None)
-
-            if (
-                model_info.params.get("top_p", None)
-                and payload["options"].get("top_p") is None
-            ):
-                payload["options"]["top_p"] = model_info.params.get("top_p", None)
-
-            if (
-                model_info.params.get("use_mmap", None)
-                and payload["options"].get("use_mmap") is None
-            ):
-                payload["options"]["use_mmap"] = model_info.params.get("use_mmap", None)
-
-            if (
-                model_info.params.get("use_mlock", None)
-                and payload["options"].get("use_mlock") is None
-            ):
-                payload["options"]["use_mlock"] = model_info.params.get(
-                    "use_mlock", None
-                )
-
-            if (
-                model_info.params.get("num_thread", None)
-                and payload["options"].get("num_thread") is None
-            ):
-                payload["options"]["num_thread"] = model_info.params.get(
-                    "num_thread", None
-                )
-
-        system = model_info.params.get("system", None)
-        if system:
-            system = prompt_template(
-                system,
-                **(
-                    {
-                        "user_name": user.name,
-                        "user_location": (
-                            user.info.get("location") if user.info else None
-                        ),
-                    }
-                    if user
-                    else {}
-                ),
+            payload["options"] = apply_model_params_to_body_ollama(
+                params, payload["options"]
             )
+            payload = apply_model_system_prompt_to_body(params, payload, user)
 
-            if payload.get("messages"):
-                payload["messages"] = add_or_update_system_message(
-                    system, payload["messages"]
-                )
+    if ":" not in payload["model"]:
+        payload["model"] = f"{payload['model']}:latest"
 
-    if url_idx == None:
-        if ":" not in payload["model"]:
-            payload["model"] = f"{payload['model']}:latest"
-
-        if payload["model"] in app.state.MODELS:
-            url_idx = random.choice(app.state.MODELS[payload["model"]]["urls"])
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail=ERROR_MESSAGES.MODEL_NOT_FOUND(form_data.model),
-            )
-
-    url = app.state.config.OLLAMA_BASE_URLS[url_idx]
+    url = get_ollama_url(url_idx, payload["model"])
     log.info(f"url: {url}")
     log.debug(payload)
 
@@ -906,7 +765,7 @@ class OpenAIChatMessage(BaseModel):
 
 class OpenAIChatCompletionForm(BaseModel):
     model: str
-    messages: List[OpenAIChatMessage]
+    messages: list[OpenAIChatMessage]
 
     model_config = ConfigDict(extra="allow")
 
@@ -918,83 +777,28 @@ async def generate_openai_chat_completion(
     url_idx: Optional[int] = None,
     user=Depends(get_verified_user),
 ):
-    form_data = OpenAIChatCompletionForm(**form_data)
-    payload = {**form_data.model_dump(exclude_none=True, exclude=["metadata"])}
-
+    completion_form = OpenAIChatCompletionForm(**form_data)
+    payload = {**completion_form.model_dump(exclude_none=True, exclude=["metadata"])}
     if "metadata" in payload:
         del payload["metadata"]
 
-    model_id = form_data.model
+    model_id = completion_form.model
     model_info = Models.get_model_by_id(model_id)
 
     if model_info:
         if model_info.base_model_id:
             payload["model"] = model_info.base_model_id
 
-        model_info.params = model_info.params.model_dump()
+        params = model_info.params.model_dump()
 
-        if model_info.params:
-            payload["temperature"] = model_info.params.get("temperature", None)
-            payload["top_p"] = model_info.params.get("top_p", None)
-            payload["max_tokens"] = model_info.params.get("max_tokens", None)
-            payload["frequency_penalty"] = model_info.params.get(
-                "frequency_penalty", None
-            )
-            payload["seed"] = model_info.params.get("seed", None)
-            payload["stop"] = (
-                [
-                    bytes(stop, "utf-8").decode("unicode_escape")
-                    for stop in model_info.params["stop"]
-                ]
-                if model_info.params.get("stop", None)
-                else None
-            )
+        if params:
+            payload = apply_model_params_to_body_openai(params, payload)
+            payload = apply_model_system_prompt_to_body(params, payload, user)
 
-        system = model_info.params.get("system", None)
+    if ":" not in payload["model"]:
+        payload["model"] = f"{payload['model']}:latest"
 
-        if system:
-            system = prompt_template(
-                system,
-                **(
-                    {
-                        "user_name": user.name,
-                        "user_location": (
-                            user.info.get("location") if user.info else None
-                        ),
-                    }
-                    if user
-                    else {}
-                ),
-            )
-            # Check if the payload already has a system message
-            # If not, add a system message to the payload
-            if payload.get("messages"):
-                for message in payload["messages"]:
-                    if message.get("role") == "system":
-                        message["content"] = system + message["content"]
-                        break
-                else:
-                    payload["messages"].insert(
-                        0,
-                        {
-                            "role": "system",
-                            "content": system,
-                        },
-                    )
-
-    if url_idx == None:
-        if ":" not in payload["model"]:
-            payload["model"] = f"{payload['model']}:latest"
-
-        if payload["model"] in app.state.MODELS:
-            url_idx = random.choice(app.state.MODELS[payload["model"]]["urls"])
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail=ERROR_MESSAGES.MODEL_NOT_FOUND(form_data.model),
-            )
-
-    url = app.state.config.OLLAMA_BASE_URLS[url_idx]
+    url = get_ollama_url(url_idx, payload["model"])
     log.info(f"url: {url}")
 
     return await post_streaming_url(
@@ -1010,7 +814,7 @@ async def get_openai_models(
     url_idx: Optional[int] = None,
     user=Depends(get_verified_user),
 ):
-    if url_idx == None:
+    if url_idx is None:
         models = await get_all_models()
 
         if app.state.config.ENABLE_MODEL_FILTER:
@@ -1065,7 +869,7 @@ async def get_openai_models(
                     res = r.json()
                     if "error" in res:
                         error_detail = f"Ollama: {res['error']}"
-                except:
+                except Exception:
                     error_detail = f"Ollama: {e}"
 
             raise HTTPException(
@@ -1091,7 +895,6 @@ def parse_huggingface_url(hf_url):
         path_components = parsed_url.path.split("/")
 
         # Extract the desired output
-        user_repo = "/".join(path_components[1:3])
         model_file = path_components[-1]
 
         return model_file
@@ -1164,7 +967,7 @@ async def download_model(
             detail="Invalid file_url. Only URLs from allowed hosts are permitted.",
         )
 
-    if url_idx == None:
+    if url_idx is None:
         url_idx = 0
     url = app.state.config.OLLAMA_BASE_URLS[url_idx]
 
@@ -1187,7 +990,7 @@ def upload_model(
     url_idx: Optional[int] = None,
     user=Depends(get_admin_user),
 ):
-    if url_idx == None:
+    if url_idx is None:
         url_idx = 0
     ollama_url = app.state.config.OLLAMA_BASE_URLS[url_idx]
 

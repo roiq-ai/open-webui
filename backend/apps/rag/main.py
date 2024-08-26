@@ -8,7 +8,7 @@ import urllib.parse
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Iterator, List, Optional, Sequence, Union
+from typing import Iterator, Optional, Sequence, Union
 
 import requests
 import validators
@@ -39,6 +39,7 @@ from config import (
     CHUNK_OVERLAP,
     CHUNK_SIZE,
     CONTENT_EXTRACTION_ENGINE,
+    CORS_ALLOW_ORIGIN,
     DEVICE_TYPE,
     DOCS_DIR,
     ENABLE_RAG_HYBRID_SEARCH,
@@ -215,12 +216,9 @@ app.state.EMBEDDING_FUNCTION = get_embedding_function(
     app.state.config.RAG_EMBEDDING_OPENAI_BATCH_SIZE,
 )
 
-origins = ["*"]
-
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=CORS_ALLOW_ORIGIN,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -351,7 +349,7 @@ async def update_reranking_config(
     try:
         app.state.config.RAG_RERANKING_MODEL = form_data.reranking_model
 
-        update_reranking_model(app.state.config.RAG_RERANKING_MODEL), True
+        update_reranking_model(app.state.config.RAG_RERANKING_MODEL, True)
 
         return {
             "status": True,
@@ -414,7 +412,7 @@ class ChunkParamUpdateForm(BaseModel):
 
 
 class YoutubeLoaderConfig(BaseModel):
-    language: List[str]
+    language: list[str]
     translation: Optional[str] = None
 
 
@@ -617,7 +615,7 @@ def query_doc_handler(
 
 
 class QueryCollectionsForm(BaseModel):
-    collection_names: List[str]
+    collection_names: list[str]
     query: str
     k: Optional[int] = None
     r: Optional[float] = None
@@ -908,6 +906,7 @@ def store_web_search(form_data: SearchForm, user=Depends(get_verified_user)):
 def store_data_in_vector_db(
     data, collection_name, metadata: Optional[dict] = None, overwrite: bool = False
 ) -> bool:
+
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=app.state.config.CHUNK_SIZE,
         chunk_overlap=app.state.config.CHUNK_OVERLAP,
@@ -995,7 +994,7 @@ class TikaLoader:
         self.file_path = file_path
         self.mime_type = mime_type
 
-    def load(self) -> List[Document]:
+    def load(self) -> list[Document]:
         with open(self.file_path, "rb") as f:
             data = f.read()
 
@@ -1073,6 +1072,13 @@ def get_loader(filename: str, file_content_type: str, file_path: str):
         "vue",
         "svelte",
         "msg",
+        "ex",
+        "exs",
+        "erl",
+        "tsx",
+        "jsx",
+        "hs",
+        "lhs",
     ]
 
     if (
@@ -1152,7 +1158,7 @@ def store_doc(
             f.close()
 
         f = open(file_path, "rb")
-        if collection_name == None:
+        if collection_name is None:
             collection_name = calculate_sha256(f)[:63]
         f.close()
 
@@ -1205,7 +1211,7 @@ def process_doc(
         f = open(file_path, "rb")
 
         collection_name = form_data.collection_name
-        if collection_name == None:
+        if collection_name is None:
             collection_name = calculate_sha256(f)[:63]
         f.close()
 
@@ -1261,8 +1267,9 @@ def store_text(
     form_data: TextRAGForm,
     user=Depends(get_verified_user),
 ):
+
     collection_name = form_data.collection_name
-    if collection_name == None:
+    if collection_name is None:
         collection_name = calculate_sha256_string(form_data.content)
 
     result = store_text_in_vector_db(
@@ -1305,7 +1312,7 @@ def scan_docs_dir(user=Depends(get_admin_user)):
                         sanitized_filename = sanitize_filename(filename)
                         doc = Documents.get_doc_by_name(sanitized_filename)
 
-                        if doc == None:
+                        if doc is None:
                             doc = Documents.insert_new_doc(
                                 user.id,
                                 DocumentForm(

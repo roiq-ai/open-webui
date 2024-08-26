@@ -150,22 +150,8 @@ https://github.com/open-webui/open-webui
 )
 
 
-async def run_migrations():
-    from alembic import command
-    from alembic.config import Config
-
-    alembic_cfg = Config("alembic.ini")
-    command.upgrade(alembic_cfg, "head")
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    await run_migrations()
-    yield
-
-
 app = FastAPI(
-    docs_url="/docs" if ENV == "dev" else None, redoc_url=None, lifespan=lifespan
+    docs_url="/docs" if ENV == "dev" else None, redoc_url=None
 )
 
 app.state.config = AppConfig()
@@ -879,7 +865,7 @@ app.add_middleware(
 async def commit_session_after_request(request: Request, call_next):
     response = await call_next(request)
     log.debug("Commit session after request")
-    Session.commit()
+    await Session.commit()
     return response
 
 

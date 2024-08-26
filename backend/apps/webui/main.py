@@ -45,7 +45,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from utils.misc import stream_message_template
 from utils.task import prompt_template
 
 app = FastAPI()
@@ -362,7 +361,6 @@ async def generate_function_chat_completion(form_data, user):
                     return
 
                 if isinstance(res, str):
-                    message = stream_message_template(form_data["model"], res)
                     yield f"data: {json.dumps(message)}\n\n"
 
                 if isinstance(res, Iterator):
@@ -381,7 +379,6 @@ async def generate_function_chat_completion(form_data, user):
                         if line.startswith("data:"):
                             yield f"{line}\n\n"
                         else:
-                            line = stream_message_template(form_data["model"], line)
                             yield f"data: {json.dumps(line)}\n\n"
 
                 if isinstance(res, str) or isinstance(res, Generator):

@@ -48,7 +48,7 @@ async def user_join(sid, data):
         data = decode_token(auth["token"])
 
         if data is not None and "id" in data:
-            user = Users.get_user_by_id(data["id"])
+            user = await Users.get_user_by_id(data["id"])
 
         if user:
             SESSION_POOL[sid] = user.id

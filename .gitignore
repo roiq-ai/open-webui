@@ -307,3 +307,9 @@ dist
 cypress/videos
 cypress/screenshots
 .vscode/settings.json
+/.ruff_cache/
+/ignore/
+/infrastructure/.terraform/
+/backend/open_webui/data/
+
+/backend/data/

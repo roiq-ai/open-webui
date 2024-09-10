@@ -1,0 +1,108 @@
+version: "3.3"
+
+volumes:
+  roiq-ai:
+
+services:
+  pipelines:
+    image: ghcr.io/open-webui/pipelines:latest
+    ports:
+      - "9099:9099"
+    volumes:
+      - ./pipelines:/app/pipelines/
+    env_file:
+      - envfile.env
+    stdin_open: true
+    logging:
+      driver: awslogs
+      options:
+        awslogs-group: open-webui-pipelines
+        awslogs-region: us-east-1
+        awslogs-create-group: "true"
+
+
+  open-webui-email:
+    image: 875668830489.dkr.ecr.us-east-1.amazonaws.com/open-webui:latest
+
+    ports:
+      - "3002:8080"
+    volumes:
+      - ./open-web-ui:/app/backend/data/
+    env_file: envfile.env
+    stdin_open: true
+    logging:
+      driver: awslogs
+      options:
+        awslogs-group: open-webui
+        awslogs-region: us-east-1
+        awslogs-create-group: "true"
+    environment:
+      - WEBUI_AUTH_TRUSTED_EMAIL_HEADER=X-User-Email
+
+
+  open-webui:
+    image: 875668830489.dkr.ecr.us-east-1.amazonaws.com/open-webui:latest
+    platform: linux/amd64
+
+    deploy:
+      resources:
+        reservations:
+          cpus: '0.5'
+          memory: 3gb
+    ports:
+      - "3000:8080"
+    volumes:
+      - ./open-web-ui:/app/backend/data/
+    env_file: envfile.env
+
+    stdin_open: true
+    logging:
+      driver: awslogs
+      options:
+        awslogs-group: open-webui
+        awslogs-region: us-east-1
+        awslogs-create-group: "true"
+
+  api:
+    image: 875668830489.dkr.ecr.us-east-1.amazonaws.com/owebui-pipelines:latest
+    platform: linux/amd64
+    ports:
+      - "8585:8585"
+    env_file:
+      - envfile.env
+    stdin_open: true
+    tty: true
+    logging:
+      driver: awslogs
+      options:
+        awslogs-group: owebui-api-server
+        awslogs-region: us-east-1
+        awslogs-create-group: "true"
+
+
+  chroma:
+    image: chromadb/chroma:latest
+    ports:
+      - "9595:9595"
+    volumes:
+      - ./chroma:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+      - PERSIST_DIRECTORY=${PERSIST_DIRECTORY:-/chroma/chroma}
+      - ALLOW_RESET=TRUE
+    stdin_open: true
+    tty: true
+    command: "--workers 1 --host 0.0.0.0 --port 9595 --proxy-headers --log-config chromadb/log_config.yml --timeout-keep-alive 30"
+    healthcheck:
+      # Adjust below to match your container port
+      test: [ "CMD", "curl", "-f", "http://localhost:9595/api/v1/heartbeat" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: awslogs
+      options:
+        awslogs-group: owebui-chroma
+        awslogs-region: us-east-1
+        awslogs-create-group: "true"
+   

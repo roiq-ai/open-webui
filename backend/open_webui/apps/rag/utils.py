@@ -33,8 +33,6 @@ def query_doc(
             query_embeddings=[query_embeddings],
             n_results=k,
         )
-
-        log.info(f"query_doc:result {result}")
         return result
     except Exception as e:
         raise e

@@ -73,7 +73,6 @@ from open_webui.config import (
     ENABLE_OLLAMA_API,
     ENABLE_OPENAI_API,
     ENV,
-    FRONTEND_BUILD_DIR,
     MODEL_FILTER_LIST,
     OAUTH_MERGE_ACCOUNTS_BY_EMAIL,
     OAUTH_PROVIDERS,
@@ -100,6 +99,7 @@ from open_webui.env import (
     WEBUI_SESSION_COOKIE_SECURE,
     WEBUI_URL,
     WEBUI_AUTH,
+    FRONTEND_BUILD_DIR,
 )
 from open_webui.utils.misc import (
     add_or_update_system_message,

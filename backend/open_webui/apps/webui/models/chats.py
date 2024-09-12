@@ -245,9 +245,7 @@ class ChatTable:
         limit: Optional[int] = None,
     ) -> list[ChatTitleIdResponse]:
         async with get_db() as db:
-            query = select(Chat).where(
-                Chat.user_id == user_id
-            )
+            query = select(Chat).where(Chat.user_id == user_id)
             if not include_archived:
                 query = query.where(Chat.archived == False)
 
@@ -267,7 +265,7 @@ class ChatTable:
                         "id": chat.id,
                         "title": chat.title,
                         "updated_at": chat.updated_at,
-                        "created_at": chat.created_at
+                        "created_at": chat.created_at,
                     }
                 )
                 for chat in all_chats.scalars().all()

@@ -49,7 +49,7 @@ async function* openAIStreamToIterator(
 		if (!value) {
 			continue;
 		}
-		const data = value.data;
+		const data = value.data
 		if (data.startsWith('[DONE]')) {
 			yield { done: true, value: '' };
 			break;
@@ -75,7 +75,19 @@ async function* openAIStreamToIterator(
 				usage: parsedData.usage
 			};
 		} catch (e) {
-			console.error('Error extracting delta from SSE event:', e);
+
+			if (e.message.includes("JSON") == true) {
+				console.log('Error extracting JSON from SSE event:', );
+				let parsedBadData = JSON.parse(JSON.stringify(data));
+				console.log(value)
+				console.log(parsedBadData)
+				yield {
+					done: false,
+					value: parsedBadData
+				};
+			} else {
+				console.error("Error extracting delta from SSE event:", e);
+			}
 		}
 	}
 }

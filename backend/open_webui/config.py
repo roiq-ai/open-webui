@@ -9,6 +9,7 @@ from typing import Generic, Optional, TypeVar
 from urllib.parse import urlparse
 
 import chromadb
+import markdown
 import yaml
 from bs4 import BeautifulSoup
 from chromadb import Settings
@@ -18,17 +19,14 @@ from open_webui.env import (
     DATA_DIR,
     WEBUI_AUTH,
     log,
+    BASE_DIR,
+    BACKEND_DIR,
 )
-import markdown
 
 ####################################
 # Load .env file
 ####################################
 
-BACKEND_DIR = Path(__file__).parent.parent  # the path containing this file
-BASE_DIR = BACKEND_DIR.parent  # the path containing the backend/
-
-print(BASE_DIR)
 
 try:
     from dotenv import find_dotenv, load_dotenv
@@ -183,14 +181,6 @@ SAFE_MODE = os.environ.get("SAFE_MODE", "false").lower() == "true"
 ####################################
 
 WEBUI_BUILD_HASH = os.environ.get("WEBUI_BUILD_HASH", "dev-build")
-
-####################################
-# DATA/FRONTEND BUILD DIR
-####################################
-
-DATA_DIR = Path(os.getenv("DATA_DIR", BACKEND_DIR / "data")).resolve()
-FRONTEND_BUILD_DIR = Path(os.getenv("FRONTEND_BUILD_DIR", BASE_DIR / "build")).resolve()
-
 RESET_CONFIG_ON_START = (
     os.environ.get("RESET_CONFIG_ON_START", "False").lower() == "true"
 )

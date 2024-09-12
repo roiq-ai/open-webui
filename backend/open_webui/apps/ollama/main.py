@@ -10,6 +10,13 @@ from urllib.parse import urlparse
 
 import aiohttp
 import requests
+from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, ConfigDict
+from starlette.background import BackgroundTask
+
+from apps.webui.models.models import Models
 from config import (
     AIOHTTP_CLIENT_TIMEOUT,
     CORS_ALLOW_ORIGIN,
@@ -17,19 +24,11 @@ from config import (
     ENABLE_OLLAMA_API,
     MODEL_FILTER_LIST,
     OLLAMA_BASE_URLS,
-    SRC_LOG_LEVELS,
     UPLOAD_DIR,
     AppConfig,
 )
 from open_webui.constants import ERROR_MESSAGES
 from open_webui.env import SRC_LOG_LEVELS
-from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, ConfigDict
-from starlette.background import BackgroundTask
-
-
 from open_webui.utils.misc import (
     calculate_sha256,
 )
@@ -138,7 +137,9 @@ async def cleanup_response(
         await session.close()
 
 
-async def post_streaming_url(url: str, payload: Union[str, bytes], stream: bool = True):
+async def post_streaming_url(
+    url: str, payload: Union[str, bytes], stream: bool = True, content_type=None
+):
     r = None
     try:
         session = aiohttp.ClientSession(
@@ -152,10 +153,13 @@ async def post_streaming_url(url: str, payload: Union[str, bytes], stream: bool 
         r.raise_for_status()
 
         if stream:
+            headers = dict(r.headers)
+            if content_type:
+                headers["Content-Type"] = content_type
             return StreamingResponse(
                 r.content,
                 status_code=r.status,
-                headers=dict(r.headers),
+                headers=headers,
                 background=BackgroundTask(
                     cleanup_response, response=r, session=session
                 ),
@@ -538,6 +542,8 @@ class GenerateEmbeddingsForm(BaseModel):
     keep_alive: Optional[Union[int, str]] = None
 
 
+@app.post("/api/embed")
+@app.post("/api/embed/{url_idx}")
 @app.post("/api/embeddings")
 @app.post("/api/embeddings/{url_idx}")
 async def generate_embeddings(
@@ -564,7 +570,7 @@ async def generate_embeddings(
 
     r = requests.request(
         method="POST",
-        url=f"{url}/api/embeddings",
+        url=f"{url}/api/embed",
         headers={"Content-Type": "application/json"},
         data=form_data.model_dump_json(exclude_none=True).encode(),
     )
@@ -727,6 +733,14 @@ async def generate_chat_completion(
         del payload["metadata"]
 
     model_id = form_data.model
+
+    if app.state.config.ENABLE_MODEL_FILTER:
+        if user.role == "user" and model_id not in app.state.config.MODEL_FILTER_LIST:
+            raise HTTPException(
+                status_code=403,
+                detail="Model not found",
+            )
+
     model_info = Models.get_model_by_id(model_id)
 
     if model_info:
@@ -751,7 +765,9 @@ async def generate_chat_completion(
     log.info(f"url: {url}")
     log.debug(payload)
 
-    return await post_streaming_url(f"{url}/api/chat", json.dumps(payload))
+    return await post_streaming_url(
+        f"{url}/api/chat", json.dumps(payload), content_type="application/x-ndjson"
+    )
 
 
 # TODO: we should update this part once Ollama supports other types
@@ -787,7 +803,15 @@ async def generate_openai_chat_completion(
         del payload["metadata"]
 
     model_id = completion_form.model
-    model_info = Models.get_model_by_id(model_id)
+
+    if app.state.config.ENABLE_MODEL_FILTER:
+        if user.role == "user" and model_id not in app.state.config.MODEL_FILTER_LIST:
+            raise HTTPException(
+                status_code=403,
+                detail="Model not found",
+            )
+
+    model_info = await Models.get_model_by_id(model_id)
 
     if model_info:
         if model_info.base_model_id:

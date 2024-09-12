@@ -551,4 +551,4 @@ async def image_generations(
             data = r.json()
             if "error" in data:
                 error = data["error"]["message"]
-        raise HTTPException(status_code=400, detail=ERROR_MESSAGES.DEFAULT(error))
+        raise HTTPException(status_code=400, detail=ERROR_MESSAGES.DEFAULT(str(error)))

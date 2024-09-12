@@ -150,6 +150,7 @@ async def update_audio_config(
     app.state.config.TTS_ENGINE = form_data.tts.ENGINE
     app.state.config.TTS_MODEL = form_data.tts.MODEL
     app.state.config.TTS_VOICE = form_data.tts.VOICE
+    app.state.config.TTS_SPLIT_ON = form_data.tts.SPLIT_ON
 
     app.state.config.STT_OPENAI_API_BASE_URL = form_data.stt.OPENAI_API_BASE_URL
     app.state.config.STT_OPENAI_API_KEY = form_data.stt.OPENAI_API_KEY
@@ -164,6 +165,7 @@ async def update_audio_config(
             "ENGINE": app.state.config.TTS_ENGINE,
             "MODEL": app.state.config.TTS_MODEL,
             "VOICE": app.state.config.TTS_VOICE,
+            "SPLIT_ON": app.state.config.TTS_SPLIT_ON,
         },
         "stt": {
             "OPENAI_API_BASE_URL": app.state.config.STT_OPENAI_API_BASE_URL,

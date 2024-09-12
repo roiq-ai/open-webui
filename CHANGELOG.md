@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **📊 Document Count Display**: Now displays the total number of documents directly within the dashboard.
 - **🚀 Ollama Embed API Endpoint**: Enabled /api/embed endpoint proxy support.
+- **Chat response download button**: Added a download button for chat responses, allowing users to save chat responses as a PDF
 
 ### Fixed
 

@@ -43,7 +43,7 @@ services:
       - ${OPEN_WEBUI_PORT-3000}:8080
     tty: true
     command: >
-        bash -c "alembic upgrade head && ./dev.sh"
+        bash -c "./dev.sh"
     env_file:
       - .env
 

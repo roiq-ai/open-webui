@@ -2,7 +2,8 @@ import logging
 import uuid
 from typing import Any, Optional
 
-from config import SRC_LOG_LEVELS
+import utils.utils
+from open_webui.config import SRC_LOG_LEVELS
 from open_webui.apps.webui.internal.db import Base, get_db
 from open_webui.apps.webui.models.users import UserModel, Users
 from open_webui.utils.utils import verify_password
@@ -128,6 +129,7 @@ class AuthsTable:
             stmt = select(Auth).where(*[Auth.email == email, Auth.active == True])
             auth = await db.execute(stmt)
             auth = auth.scalar()
+            print(utils.utils.get_password_hash(password))
             if auth:
                 if verify_password(password, auth.password):
                     user = await Users.get_user_by_id(auth.id)
@@ -160,15 +162,10 @@ class AuthsTable:
 
     async def update_user_password_by_id(self, id: str, new_password: str) -> bool:
         async with get_db() as db:
-            stmt = (
-                update(Auth)
-                .where(Auth.id == id)
-                .values(password=new_password)
-                .returning(Auth.id)
-            )
+            stmt = update(Auth).where(Auth.id == id).values(password=new_password)
             await db.execute(stmt)
             await db.commit()
-            return True
+        return True
 
     async def update_email_by_id(self, id: str, email: str) -> bool:
         async with get_db() as db:
@@ -177,6 +174,7 @@ class AuthsTable:
             )
             await db.execute(stmt)
             await db.commit()
+            await db.refresh(Auth)
             return True
 
     async def delete_auth_by_id(self, id: str) -> bool:

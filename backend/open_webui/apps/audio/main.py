@@ -7,7 +7,7 @@ from functools import lru_cache
 from pathlib import Path
 
 import requests
-from constants import ERROR_MESSAGES
+from open_webui.constants import ERROR_MESSAGES
 from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse

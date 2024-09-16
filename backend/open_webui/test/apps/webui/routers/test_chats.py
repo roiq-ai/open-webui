@@ -1,16 +1,18 @@
 import uuid
+
 from test.util.abstract_integration_test import AbstractPostgresTest
 from test.util.mock_user import mock_webui_user
+import pytest
 
 
 class TestChats(AbstractPostgresTest):
     BASE_PATH = "/api/v1/chats"
 
-    def setup_class(cls):
-        super().setup_class()
+    async def setup_class(cls):
+        await super().setup_class()
 
-    def setup_method(self):
-        super().setup_method()
+    async def setup_method(self):
+        await super().setup_method()
         from open_webui.apps.webui.models.chats import ChatForm, Chats
 
         self.chats = Chats
@@ -28,15 +30,22 @@ class TestChats(AbstractPostgresTest):
             ),
         )
 
-    def test_get_session_user_chat_list(self):
-        with mock_webui_user(id="2"):
-            response = self.fast_api_client.get(self.create_url("/"))
-        assert response.status_code == 200
-        first_chat = response.json()[0]
-        assert first_chat["id"] is not None
-        assert first_chat["title"] == "New Chat"
-        assert first_chat["created_at"] is not None
-        assert first_chat["updated_at"] is not None
+    @pytest.mark.asyncio
+    async def test_get_session_user_chat_list(self, some_user):
+        async for some_users in some_user:
+            user = await some_users(
+                email="chatuser@gmail.com",
+                password="password",
+                name="Chat User",
+            )
+            async with mock_webui_user(id=user.id):
+                response = await self.fast_api_client.get(self.create_url("/"))
+            assert response.status_code == 200
+            first_chat = response.json()[0]
+            assert first_chat["id"] is not None
+            assert first_chat["title"] == "New Chat"
+            assert first_chat["created_at"] is not None
+            assert first_chat["updated_at"] is not None
 
     def test_delete_all_user_chats(self):
         with mock_webui_user(id="2"):

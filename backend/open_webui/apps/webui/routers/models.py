@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from constants import ERROR_MESSAGES
+from open_webui.constants import ERROR_MESSAGES
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from open_webui.apps.webui.models.models import (
     ModelForm,

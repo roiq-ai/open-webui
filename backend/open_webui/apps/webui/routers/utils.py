@@ -2,8 +2,8 @@ from typing import List
 
 import black
 import markdown
-from config import DATA_DIR, ENABLE_ADMIN_EXPORT
-from constants import ERROR_MESSAGES
+from open_webui.config import DATA_DIR, ENABLE_ADMIN_EXPORT
+from open_webui.constants import ERROR_MESSAGES
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fpdf import FPDF
 from open_webui.utils.misc import get_gravatar_url

@@ -2,7 +2,7 @@ import logging
 import time
 from typing import List, Optional
 
-from config import SRC_LOG_LEVELS
+from open_webui.config import SRC_LOG_LEVELS
 from open_webui.apps.webui.internal.db import Base, JSONField, get_db
 from open_webui.apps.webui.models.users import Users
 from pydantic import BaseModel, ConfigDict

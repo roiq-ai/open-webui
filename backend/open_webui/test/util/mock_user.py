@@ -1,25 +1,26 @@
-from contextlib import contextmanager
+from contextlib import contextmanager, asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
 
-@contextmanager
-def mock_webui_user(**kwargs):
+@asynccontextmanager
+async def mock_webui_user(**kwargs):
     from open_webui.apps.webui.main import app
 
-    with mock_user(app, **kwargs):
-        yield
+    async with mock_user(app, **kwargs) as client:
+        yield client
 
 
-@contextmanager
-def mock_user(app: FastAPI, **kwargs):
-    from open_webui.apps.webui.models.users import User
+@asynccontextmanager
+async def mock_user(app: FastAPI, **kwargs):
     from open_webui.utils.utils import (
-        get_admin_user,
         get_current_user,
-        get_current_user_by_api_key,
         get_verified_user,
+        get_admin_user,
+        get_current_user_by_api_key,
     )
+    from open_webui.apps.webui.models.users import User
 
     def create_user():
         user_parameters = {
@@ -41,5 +42,5 @@ def mock_user(app: FastAPI, **kwargs):
         get_admin_user: create_user,
         get_current_user_by_api_key: create_user,
     }
-    yield
-    app.dependency_overrides = {}
+    with TestClient(app) as test_client:
+        yield test_client

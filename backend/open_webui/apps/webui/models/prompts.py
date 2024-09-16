@@ -65,7 +65,9 @@ class PromptsTable:
     async def get_prompt_by_command(self, command: str) -> Optional[PromptModel]:
         async with get_db() as db:
             prompt = await db.execute(select(Prompt).where(Prompt.command == command))
-            return PromptModel.model_validate(prompt.scalar())
+            prompt = prompt.scalar()
+            if prompt:
+                return PromptModel.model_validate(prompt)
 
     async def get_prompts(self) -> List[PromptModel]:
         async with get_db() as db:

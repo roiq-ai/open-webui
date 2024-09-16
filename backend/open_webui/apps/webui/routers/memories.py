@@ -1,7 +1,7 @@
 import logging
 from typing import List, Optional
 
-from config import CHROMA_CLIENT, SRC_LOG_LEVELS
+from open_webui.config import CHROMA_CLIENT, SRC_LOG_LEVELS
 from fastapi import APIRouter, Depends, HTTPException, Request
 from open_webui.apps.webui.models.memories import Memories, MemoryModel
 from open_webui.utils.utils import get_verified_user

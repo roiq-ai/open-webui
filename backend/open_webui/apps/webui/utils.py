@@ -55,7 +55,7 @@ def replace_imports(content):
         "from utils": "from open_webui.utils",
         "from apps": "from open_webui.apps",
         "from main": "from open_webui.main",
-        "from config": "from open_webui.config",
+        "from open_webui.config": "from open_webui.config",
     }
 
     for old, new in replacements.items():

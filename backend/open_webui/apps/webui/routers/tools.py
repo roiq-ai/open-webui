@@ -2,8 +2,8 @@ import os
 from pathlib import Path
 from typing import List, Optional
 
-from config import CACHE_DIR, DATA_DIR
-from constants import ERROR_MESSAGES
+from open_webui.config import CACHE_DIR, DATA_DIR
+from open_webui.constants import ERROR_MESSAGES
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from open_webui.apps.webui.models.tools import ToolForm, ToolModel, ToolResponse, Tools
 from open_webui.apps.webui.utils import load_toolkit_module_by_id, replace_imports

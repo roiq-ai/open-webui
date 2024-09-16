@@ -232,7 +232,7 @@ class PersistentConfig(Generic[T]):
         self.env_value = env_value
         self.config_value = get_config_value(config_path)
         if self.config_value is not None:
-            log.info(f"'{env_name}' loaded from config.json")
+            log.info(f"'{env_name}' loaded from open_webui.config.json")
             self.value = self.config_value
         else:
             self.value = env_value
@@ -965,21 +965,23 @@ TIKA_SERVER_URL = PersistentConfig(
 ####################################
 # RAG
 ####################################
-
-CHROMA_DATA_PATH = f"{DATA_DIR}/vector_db"
-CHROMA_TENANT = os.environ.get("CHROMA_TENANT", chromadb.DEFAULT_TENANT)
-CHROMA_DATABASE = os.environ.get("CHROMA_DATABASE", chromadb.DEFAULT_DATABASE)
-CHROMA_HTTP_HOST = os.environ.get("CHROMA_HTTP_HOST", "")
-CHROMA_HTTP_PORT = int(os.environ.get("CHROMA_HTTP_PORT", "8000"))
-# Comma-separated list of header=value pairs
-CHROMA_HTTP_HEADERS = os.environ.get("CHROMA_HTTP_HEADERS", "")
-if CHROMA_HTTP_HEADERS:
-    CHROMA_HTTP_HEADERS = dict(
-        [pair.split("=") for pair in CHROMA_HTTP_HEADERS.split(",")]
-    )
+if not os.environ.get("TEST"):
+    CHROMA_DATA_PATH = f"{DATA_DIR}/vector_db"
+    CHROMA_TENANT = os.environ.get("CHROMA_TENANT", chromadb.DEFAULT_TENANT)
+    CHROMA_DATABASE = os.environ.get("CHROMA_DATABASE", chromadb.DEFAULT_DATABASE)
+    CHROMA_HTTP_HOST = os.environ.get("CHROMA_HTTP_HOST", "")
+    CHROMA_HTTP_PORT = int(os.environ.get("CHROMA_HTTP_PORT", "8000"))
+    # Comma-separated list of header=value pairs
+    CHROMA_HTTP_HEADERS = os.environ.get("CHROMA_HTTP_HEADERS", "")
+    if CHROMA_HTTP_HEADERS:
+        CHROMA_HTTP_HEADERS = dict(
+            [pair.split("=") for pair in CHROMA_HTTP_HEADERS.split(",")]
+        )
+    else:
+        CHROMA_HTTP_HEADERS = None
+    CHROMA_HTTP_SSL = os.environ.get("CHROMA_HTTP_SSL", "false").lower() == "true"
 else:
-    CHROMA_HTTP_HEADERS = None
-CHROMA_HTTP_SSL = os.environ.get("CHROMA_HTTP_SSL", "false").lower() == "true"
+    CHROMA_CLIENT = chromadb.PersistentClient(path=f"{DATA_DIR}/vector_db")
 # this uses the model defined in the Dockerfile ENV variable. If you dont use docker or docker based deployments such as k8s, the default embedding model will be used (sentence-transformers/all-MiniLM-L6-v2)
 
 RAG_TOP_K = PersistentConfig(

@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql.type_api import _T
 from typing_extensions import Self
+from sqlalchemy.pool import NullPool
 
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["DB"])
@@ -57,16 +58,20 @@ else:
 SQLALCHEMY_DATABASE_URL = DATABASE_URL
 if "sqlite" in SQLALCHEMY_DATABASE_URL:
     engine = create_async_engine(
-        SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+        SQLALCHEMY_DATABASE_URL,
+        connect_args={"check_same_thread": False},
+        poolclass=NullPool,
     )
 else:
-    engine = create_async_engine(SQLALCHEMY_DATABASE_URL, pool_pre_ping=True)
+    engine = create_async_engine(
+        SQLALCHEMY_DATABASE_URL, pool_pre_ping=True, poolclass=NullPool
+    )
 
 SessionLocal = async_sessionmaker(
     autocommit=False, autoflush=False, bind=engine, expire_on_commit=False
 )
 Base = declarative_base()
-Session = async_scoped_session(SessionLocal, asyncio.current_task)
+Session = async_scoped_session(SessionLocal, scopefunc=asyncio.current_task)
 
 
 # Dependency

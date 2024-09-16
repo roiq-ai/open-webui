@@ -100,7 +100,6 @@ class UsersTable:
             result = User(**user.model_dump())
             db.add(result)
             await db.commit()
-            await db.refresh(result)
             if result:
                 return user
             else:

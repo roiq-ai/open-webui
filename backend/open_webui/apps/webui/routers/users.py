@@ -1,8 +1,8 @@
 import logging
 from typing import List, Optional
 
-from config import SRC_LOG_LEVELS
-from constants import ERROR_MESSAGES
+from open_webui.config import SRC_LOG_LEVELS
+from open_webui.constants import ERROR_MESSAGES
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from open_webui.apps.webui.models.auths import Auths
 from open_webui.apps.webui.models.chats import Chats

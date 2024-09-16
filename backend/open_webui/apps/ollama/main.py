@@ -16,8 +16,8 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict
 from starlette.background import BackgroundTask
 
-from apps.webui.models.models import Models
-from config import (
+from open_webui.apps.webui.models.models import Models
+from open_webui.config import (
     AIOHTTP_CLIENT_TIMEOUT,
     CORS_ALLOW_ORIGIN,
     ENABLE_MODEL_FILTER,

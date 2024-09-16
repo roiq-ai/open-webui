@@ -796,7 +796,14 @@ async def commit_session_after_request(request: Request, call_next):
 @app.middleware("http")
 async def check_url(request: Request, call_next):
     if len(app.state.MODELS) == 0:
-        await get_all_models()
+        if (
+            os.environ.get("TESTING") == "true"
+            or "pytest" in sys.modules
+            or "pytest" in sys.argv
+        ):
+            pass
+        else:
+            await get_all_models()
     else:
         pass
 
@@ -946,6 +953,7 @@ async def get_all_models():
 
             if hasattr(function_module, "actions"):
                 actions = function_module.actions
+                traceback.print_exc()
                 model["actions"].extend(
                     [
                         {

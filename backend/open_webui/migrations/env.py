@@ -2,7 +2,7 @@ import asyncio
 from logging.config import fileConfig
 
 from alembic import context
-from config import DATABASE_URL
+from open_webui.config import DATABASE_URL
 from open_webui.apps.webui.internal.db import Base, engine
 from sqlalchemy.engine import Connection
 

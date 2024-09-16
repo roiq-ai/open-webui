@@ -5,8 +5,8 @@ import uuid
 from pathlib import Path
 from typing import List, Optional
 
-from config import SRC_LOG_LEVELS, UPLOAD_DIR
-from constants import ERROR_MESSAGES
+from open_webui.constants import ERROR_MESSAGES
+from open_webui.config import SRC_LOG_LEVELS, UPLOAD_DIR
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
 from open_webui.apps.webui.models.files import FileForm, FileModel, Files

@@ -1,6 +1,6 @@
 from typing import List
 
-from config import BannerModel
+from open_webui.config import BannerModel
 from fastapi import APIRouter, Depends, Request
 from open_webui.utils.utils import get_admin_user, get_verified_user
 from pydantic import BaseModel

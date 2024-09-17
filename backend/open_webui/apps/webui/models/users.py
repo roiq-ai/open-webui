@@ -230,18 +230,17 @@ class UsersTable:
     async def get_dau(self, form: DAUForm) -> List[UserModel]:
         async with get_db() as db:
             stmt = select(
-                User.email,
-                User.last_active_at
+                User
             ).where(
                 and_(
                     *[
-                        func.c(User.last_active_at, Date) >= form.start_date,
-                        func.cast(User.last_active_at, Date) <= form.end_date,
+                        User.last_active_at >= time.mktime(form.start_date.timetuple()),
                     ]
                 )
             )
             users = await db.execute(stmt)
-            return users.scalars().all()
+            users = users.scalars().all()
+            return users
 
 
 

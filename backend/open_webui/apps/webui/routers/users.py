@@ -21,6 +21,7 @@ from open_webui.apps.webui.models.users import (
 )
 from open_webui.utils.utils import get_admin_user, get_password_hash, get_verified_user
 from pydantic import BaseModel
+import pandas as pd
 
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["MODELS"])
@@ -286,5 +287,8 @@ async def daily_active_users(
        user=Depends(get_admin_user)
 ):
     form_data = DAUForm()
-    return await Users.get_dau(form_data)
+    users = [
+        {"email": x.email, "last_active_at":pd.Timestamp.utcfromtimestamp(x.last_active_at).strftime("%Y-%m-%d")} for x in await Users.get_dau(form_data)
+    ]
+    return users
 

@@ -33,7 +33,7 @@ export const getDAU = async (token: string) => {
 
     const res = await fetch(`${WEBUI_API_BASE_URL}/users/dau` ,
         {
-            method: 'GET',
+            method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${token}`

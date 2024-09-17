@@ -86,6 +86,18 @@ class DocumentsTable:
             if result:
                 return DocumentModel.model_validate(result)
 
+    async def get_documents_by_account(self, name):
+        async with get_db() as db:
+            stmt = select(
+                Document
+            ).where(
+                Document.collection_name.like(f"%{name}%")
+            )
+            result = await db.execute(stmt)
+            return [
+                DocumentModel.model_validate(doc) for doc in result.scalars()
+            ]
+
     async def get_doc_by_name(self, name: str) -> Optional[DocumentModel]:
         async with get_db() as db:
             doc = await db.execute(select(Document).where(Document.name == name))

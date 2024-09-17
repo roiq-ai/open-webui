@@ -2,7 +2,7 @@ import logging
 import uuid
 from typing import Any, Optional
 
-import utils.utils
+
 from open_webui.config import SRC_LOG_LEVELS
 from open_webui.apps.webui.internal.db import Base, get_db
 from open_webui.apps.webui.models.users import UserModel, Users
@@ -129,7 +129,6 @@ class AuthsTable:
             stmt = select(Auth).where(*[Auth.email == email, Auth.active == True])
             auth = await db.execute(stmt)
             auth = auth.scalar()
-            print(utils.utils.get_password_hash(password))
             if auth:
                 if verify_password(password, auth.password):
                     user = await Users.get_user_by_id(auth.id)

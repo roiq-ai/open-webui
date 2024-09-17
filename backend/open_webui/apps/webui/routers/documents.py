@@ -1,6 +1,8 @@
 import json
 from typing import List, Optional
 
+from open_webui.apps.webui.models.user_mapping import UserMappings
+from open_webui.apps.webui.models.users import Users
 from open_webui.constants import ERROR_MESSAGES
 from fastapi import APIRouter, Depends, HTTPException, status
 from open_webui.apps.webui.models.documents import (
@@ -22,6 +24,8 @@ router = APIRouter()
 
 @router.get("/", response_model=List[DocumentResponse])
 async def get_documents(user=Depends(get_verified_user)):
+    user = await UserMappings.get_user_mapping_by_email("mthomas@dealerx.com")
+
     docs = [
         DocumentResponse(
             **{
@@ -29,7 +33,9 @@ async def get_documents(user=Depends(get_verified_user)):
                 "content": json.loads(doc.content if doc.content else "{}"),
             }
         )
-        for doc in await Documents.get_docs()
+        for doc in await Documents.get_documents_by_account(
+            user.account_id
+        )
     ]
     return docs
 

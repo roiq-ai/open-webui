@@ -19,7 +19,7 @@ login:
 
 .PHONY: build
 build:
-	docker build -t open-webui --no-cache . --platform linux/amd64
+	docker build -t open-webui . --platform linux/amd64
 
 .PHONY: push
 push: build login

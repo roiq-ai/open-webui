@@ -2,11 +2,11 @@ from typing import Optional
 
 from open_webui.apps.webui.internal.db import Base, get_db
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, select
 
 
 class UserMapping(Base):
-    __tablename__ = "user_mapping"
+    __tablename__ = "username_mapping"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     username = Column(String)
@@ -47,14 +47,15 @@ class UserMappingTable:
 
     async def get_user_mapping_by_email(self, email: str) -> UserMappingModel:
         async with get_db() as db:
-            stmt = UserMapping.__table__.select().where(UserMapping.email == email)
-            result = await db.fetch_one(stmt)
-            return UserMappingModel(**result)
+            stmt = select(UserMapping).where(UserMapping.email == email)
+            result = await db.execute(stmt)
+            records = result.scalar()
+            return records
 
     async def update_user_mapping_table(self, form: UserMappingUpdateForm):
         with get_db() as db:
             stmt = (
-                UserMapping.__table__.update()
+                UserMapping.update()
                 .where(UserMapping.email == form.email)
                 .values(
                     username=form.username,
@@ -66,5 +67,4 @@ class UserMappingTable:
             await db.commit()
             return form
 
-
-UserMapping = UserMappingTable()
+UserMappings = UserMappingTable()

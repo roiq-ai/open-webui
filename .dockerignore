@@ -18,6 +18,8 @@ uploads
 **/*.db
 _test
 ignore
+backend/data
+backend/open_webui/data
 
 # Byte-compiled / optimized / DLL files
 *$py.class
@@ -295,3 +297,4 @@ backend/data
 
 .ruff_cache/backend/open_webui/data/
 /backend/open_webui/data/
+/backend/data/

@@ -1,10 +1,13 @@
 import time
-from typing import List, Optional
-
+from datetime import datetime, date
+from typing import List, Optional, Union
+from dateutil.relativedelta import relativedelta
 from open_webui.apps.webui.internal.db import Base, JSONField, get_db
 from open_webui.apps.webui.models.chats import Chats
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import BigInteger, Column, String, Text, delete, func, select, update
+from sqlalchemy import BigInteger, Column, String, Text, delete, func, select, update, and_
+import sqlalchemy.sql.functions as func
+from sqlalchemy.types import Date
 
 ####################
 # User DB Schema
@@ -60,6 +63,9 @@ class UserModel(BaseModel):
 # Forms
 ####################
 
+class DAUForm(BaseModel):
+    start_date: Optional[Union[str,date]] = (datetime.today() - relativedelta(days=7)).date()
+    end_date: Optional[Union[str,date]] = datetime.today().date()
 
 class UserRoleUpdateForm(BaseModel):
     id: str
@@ -220,6 +226,23 @@ class UsersTable:
         async with get_db() as db:
             user = await db.get(User, id)
             return user.api_key
+
+    async def get_dau(self, form: DAUForm) -> List[UserModel]:
+        async with get_db() as db:
+            stmt = select(
+                User.email,
+                User.last_active_at
+            ).where(
+                and_(
+                    *[
+                        func.c(User.last_active_at, Date) >= form.start_date,
+                        func.cast(User.last_active_at, Date) <= form.end_date,
+                    ]
+                )
+            )
+            users = await db.execute(stmt)
+            return users.scalars().all()
+
 
 
 Users = UsersTable()

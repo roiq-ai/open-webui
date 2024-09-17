@@ -1,4 +1,5 @@
 import logging
+from datetime import date
 from typing import List, Optional
 
 from open_webui.config import SRC_LOG_LEVELS
@@ -16,7 +17,7 @@ from open_webui.apps.webui.models.users import (
     UserRoleUpdateForm,
     Users,
     UserSettings,
-    UserUpdateForm,
+    UserUpdateForm, DAUForm,
 )
 from open_webui.utils.utils import get_admin_user, get_password_hash, get_verified_user
 from pydantic import BaseModel
@@ -277,3 +278,13 @@ async def update_user_mapping(
     form_data: UserMappingUpdateForm, user=Depends(get_admin_user)
 ):
     return await UserMapping.update_user_mapping_table(form_data)
+
+
+@router.post("/dau")
+async def daily_active_users(
+        form_data: DAUForm,
+       user=Depends(get_admin_user)
+):
+    form_data = DAUForm()
+    return await Users.get_dau(form_data)
+

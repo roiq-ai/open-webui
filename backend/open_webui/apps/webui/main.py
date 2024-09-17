@@ -390,3 +390,5 @@ async def generate_function_chat_completion(form_data, user):
 
         message = await get_message_content(res)
         return openai_chat_completion_message_template(form_data["model"], message)
+
+

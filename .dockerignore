@@ -13,7 +13,6 @@ __pycache__
 .idea
 venv
 _old
-uploads
 .ipynb_checkpoints
 **/*.db
 _test
@@ -256,7 +255,6 @@ web_modules/
 # Nuxt.js build / generate output
 .nuxt
 # Gatsby files
-.cache/
 # Comment in the public line in if your project uses Gatsby and not Next.js
 # https://nextjs.org/blog/next-9-1#public-directory-support
 # public
@@ -293,8 +291,4 @@ web_modules/
 infrastructure
 proxy
 
-backend/data
-
-.ruff_cache/backend/open_webui/data/
-/backend/open_webui/data/
-/backend/data/
+.ruff_cache/

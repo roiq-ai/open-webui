@@ -77,7 +77,7 @@ async function* openAIStreamToIterator(
 		} catch (e) {
 			if (e.message.includes('JSON') == true) {
 				console.log('Error extracting JSON from SSE event:');
-				let parsedBadData = JSON.parse(JSON.stringify(data));
+				const parsedBadData = JSON.parse(JSON.stringify(data));
 				console.log(value);
 				console.log(parsedBadData);
 				yield {

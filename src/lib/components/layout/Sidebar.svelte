@@ -99,7 +99,7 @@
 		await chats.set([...$chats, ...newChatList]);
 
 		chatListLoading = false;
-		$: allChatsLoaded = true;
+		allChatsLoaded = true;
 	};
 
 	onMount(async () => {

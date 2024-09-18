@@ -3,12 +3,16 @@ BACKEND := $(shell pwd)/backend
 AWS_ACCOUNT=875668830489
 AWS_REGION=us-east-1
 ECR := ${AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com/open-webui
+TAG := $(shell rye version)
 
 ifneq ($(shell which docker-compose 2>/dev/null),)
     DOCKER_COMPOSE := docker-compose
 else
     DOCKER_COMPOSE := docker compose
 endif
+
+bump-version:
+	$(RYE) version -b minor
 
 format:
 	$(RYE) format
@@ -22,9 +26,9 @@ build:
 	docker build -t open-webui . --platform linux/amd64
 
 .PHONY: push
-push: build login
-	docker tag open-webui:latest ${ECR}:latest
-	docker push ${ECR}:latest
+push: bump-version build login
+	docker tag open-webui ${ECR}:${TAG}
+	docker push ${ECR}:${TAG}
 
 install:
 	$(DOCKER_COMPOSE) up -d

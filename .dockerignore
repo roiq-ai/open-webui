@@ -17,8 +17,8 @@ _old
 **/*.db
 _test
 ignore
-backend/data
-backend/open_webui/data
+
+
 
 # Byte-compiled / optimized / DLL files
 *$py.class

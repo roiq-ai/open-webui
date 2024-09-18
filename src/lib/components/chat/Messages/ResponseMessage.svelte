@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { toast } from 'svelte-sonner';
 	import dayjs from 'dayjs';
-	import { jsPDF } from "jspdf";
+	import { jsPDF } from 'jspdf';
 	import { svg2pdf } from 'svg2pdf.js';
 	import { createEventDispatcher } from 'svelte';
 	import { onMount, tick, getContext } from 'svelte';
-	import {Canvg, Document} from "canvg";
+	import { Canvg, Document } from 'canvg';
 
 	const i18n = getContext<Writable<i18nType>>('i18n');
 
@@ -38,7 +38,7 @@
 
 	import type { Writable } from 'svelte/store';
 	import type { i18n as i18nType } from 'i18next';
-	import html2canvas from "html2canvas";
+	import html2canvas from 'html2canvas';
 
 	interface MessageType {
 		id: string;
@@ -276,43 +276,37 @@
 		await tick();
 	};
 
-
-
 	function writeHtml(html) {
-		const doc = new jsPDF(
-				{
-					orientation: 'p',
-					unit: 'mm',
-					format: [1200,2400]
-				}
-		);
-
-		doc.html(html,{
-			// width: 2000,
-			autoPaging: 'slice',
-		}).then(() => {
-			doc.save("message-"+message.id+".pdf");
+		const doc = new jsPDF({
+			orientation: 'p',
+			unit: 'mm',
+			format: [1200, 2400]
 		});
+
+		doc
+			.html(html, {
+				// width: 2000,
+				autoPaging: 'slice'
+			})
+			.then(() => {
+				doc.save('message-' + message.id + '.pdf');
+			});
 	}
 
 	async function getImage(svg) {
-		const c = new OffscreenCanvas(
-				svg.width.animVal.value,
-				svg.height.animVal.value
-		)
+		const c = new OffscreenCanvas(svg.width.animVal.value, svg.height.animVal.value);
 		const ctx = c.getContext('2d');
 		const v = await Canvg.fromString(ctx, svg.outerHTML);
 		await v.render();
-		let blob = await c.convertToBlob()
-		return URL.createObjectURL(blob)
+		let blob = await c.convertToBlob();
+		return URL.createObjectURL(blob);
 	}
 
-	const downloadMessage = async(message: MessageType) => {
-
-		let divId = "chat-" +message.role + "-" + message.id + "-response"
+	const downloadMessage = async (message: MessageType) => {
+		let divId = 'chat-' + message.role + '-' + message.id + '-response';
 
 		let chatMessage = document.getElementById(divId);
-		let svgs  = chatMessage?.querySelectorAll('svg');
+		let svgs = chatMessage?.querySelectorAll('svg');
 		if (svgs !== undefined && svgs.length > 0) {
 			for (const svg of svgs) {
 				await getImage(svg).then((canvas) => {
@@ -321,16 +315,13 @@
 					let elem = document.getElementById(svg.id);
 					let parent = elem?.parentElement;
 					parent?.replaceChild(img, elem);
-				})
-
+				});
 			}
 			writeHtml(chatMessage);
 		} else {
 			writeHtml(chatMessage);
 		}
-
-	}
-
+	};
 
 	const generateImage = async (message: MessageType) => {
 		generatingImage = true;
@@ -399,7 +390,10 @@
 					</div>
 				{/if}
 
-				<div class="chat-{message.role} w-full min-w-full markdown-prose" id="chat-{message.role}-{message.id}-response">
+				<div
+					class="chat-{message.role} w-full min-w-full markdown-prose"
+					id="chat-{message.role}-{message.id}-response"
+				>
 					<div>
 						{#if (message?.statusHistory ?? [...(message?.status ? [message?.status] : [])]).length > 0}
 							{@const status = (
@@ -625,26 +619,30 @@
 
 								<Tooltip content={$i18n.t('Download')} placement="bottom">
 									<button
-											class="{isLastMessage
-													? 'visible'
-													: 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg
+										class="{isLastMessage
+											? 'visible'
+											: 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg
 													 dark:hover:text-white hover:text-black transition"
-											on:click={async () => {
-													await downloadMessage(message);
-												}}
+										on:click={async () => {
+											await downloadMessage(message);
+										}}
 									>
 										<svg
-												stroke="currentColor"
-												fill="none"
-												stroke-width="2.3"
-												viewBox="0 0 24 24"
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												class="w-4 h-4"
-												xmlns="http://www.w3.org/2000/svg"
-										>  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
-										</svg
+											stroke="currentColor"
+											fill="none"
+											stroke-width="2.3"
+											viewBox="0 0 24 24"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											class="w-4 h-4"
+											xmlns="http://www.w3.org/2000/svg"
 										>
+											<path
+												strokeLinecap="round"
+												strokeLinejoin="round"
+												d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"
+											/>
+										</svg>
 									</button>
 								</Tooltip>
 

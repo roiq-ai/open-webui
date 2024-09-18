@@ -24,7 +24,7 @@ router = APIRouter()
 
 @router.get("/", response_model=List[DocumentResponse])
 async def get_documents(user=Depends(get_verified_user)):
-    user = await UserMappings.get_user_mapping_by_email("mthomas@dealerx.com")
+    user = await UserMappings.get_user_mapping_by_email(user.email)
 
     docs = [
         DocumentResponse(
@@ -33,9 +33,7 @@ async def get_documents(user=Depends(get_verified_user)):
                 "content": json.loads(doc.content if doc.content else "{}"),
             }
         )
-        for doc in await Documents.get_documents_by_account(
-            user.account_id
-        )
+        for doc in await Documents.get_documents_by_account(user.account_id)
     ]
     return docs
 

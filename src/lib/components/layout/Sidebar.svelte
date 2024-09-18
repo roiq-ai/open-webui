@@ -96,10 +96,10 @@
 		const newChatList = await getChatList(localStorage.token, $currentChatPage);
 
 		// once the bottom of the list has been reached (no results) there is no need to continue querying
-		allChatsLoaded = newChatList.length === 0;
 		await chats.set([...$chats, ...newChatList]);
 
 		chatListLoading = false;
+		$: allChatsLoaded = true;
 	};
 
 	onMount(async () => {

@@ -17,11 +17,13 @@ from open_webui.apps.webui.models.users import (
     UserRoleUpdateForm,
     Users,
     UserSettings,
-    UserUpdateForm, DAUForm,
+    UserUpdateForm,
+    DAUForm,
 )
 from open_webui.utils.utils import get_admin_user, get_password_hash, get_verified_user
 from pydantic import BaseModel
 import pandas as pd
+from fastapi_cache.decorator import cache
 
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["MODELS"])
@@ -34,6 +36,7 @@ router = APIRouter()
 
 
 @router.get("/", response_model=List[UserModel])
+@cache(expire=60)
 async def get_users(skip: int = 0, limit: int = 50, user=Depends(get_admin_user)):
     return await Users.get_users(skip, limit)
 
@@ -282,13 +285,20 @@ async def update_user_mapping(
 
 
 @router.post("/dau")
-async def daily_active_users(
-        form_data: DAUForm,
-       user=Depends(get_admin_user)
-):
+@cache(expire=60 * 60)
+async def daily_active_users(form_data: DAUForm, user=Depends(get_admin_user)):
     form_data = DAUForm()
-    users = [
-        {"email": x.email, "last_active_at":pd.Timestamp.utcfromtimestamp(x.last_active_at).strftime("%Y-%m-%d")} for x in await Users.get_dau(form_data)
-    ]
-    return users
-
+    users = pd.DataFrame.from_records(
+        [
+            {
+                "email": x.email,
+                "last_active_at": pd.Timestamp.utcfromtimestamp(
+                    x.last_active_at
+                ).strftime("%Y-%m-%d"),
+            }
+            for x in await Users.get_dau(form_data)
+        ]
+    )
+    return (
+        users.groupby("last_active_at").count().reset_index().to_dict(orient="records")
+    )

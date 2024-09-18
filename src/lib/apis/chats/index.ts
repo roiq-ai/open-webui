@@ -40,7 +40,7 @@ export const getChatList = async (token: string = '', page: number | null = null
 		searchParams.append('page', `${page}`);
 	}
 
-	const res = await fetch(`${WEBUI_API_BASE_URL}/chats/?${searchParams.toString()}`, {
+	const res = await fetch(`${WEBUI_API_BASE_URL}/chats?${searchParams.toString()}`, {
 		method: 'GET',
 		headers: {
 			Accept: 'application/json',

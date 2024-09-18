@@ -30,28 +30,33 @@ export const getUserPermissions = async (token: string) => {
 
 export const getDAU = async (token: string) => {
     let error = null;
+    const currentDate = new Date();
+    const pastDate = new Date(currentDate);
 
-    const res = await fetch(`${WEBUI_API_BASE_URL}/users/dau` ,
+    const res = await fetch(`${WEBUI_API_BASE_URL}/users/dau`,
         {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${token}`
-            }
+            },
+            body: JSON.stringify({
+                "start_date": pastDate.setDate(currentDate.getDate() - 30).toString(), "end_date": currentDate.toString()
+            })
         }
     ).then(async (res) => {
-		if (!res.ok) throw await res.json();
-		return res.json();
-	}).catch((err) => {
-		console.log(err);
-		error = err.detail;
-		return null;
-	}
-	)
-	if(error){
-		throw error;
-	}
-	return res;
+        if (!res.ok) throw await res.json();
+        return res.json();
+    }).catch((err) => {
+            console.log(err);
+            error = err.detail;
+            return null;
+        }
+    )
+    if (error) {
+        throw error;
+    }
+    return res;
 }
 
 export const updateUserPermissions = async (token: string, permissions: object) => {

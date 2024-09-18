@@ -1,5 +1,5 @@
 <script>
-	import Insights from '$lib/components/admin/Insights.svelte';
+	import Settings from '$lib/components/admin/Settings.svelte';
 </script>
 
-<Insights />
+<Settings />

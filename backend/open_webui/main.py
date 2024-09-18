@@ -124,6 +124,7 @@ from open_webui.utils.utils import (
     get_verified_user,
 )
 from open_webui.utils.webhook import post_webhook
+from fastapi_cache.backends.inmemory import InMemoryBackend
 
 if SAFE_MODE:
     print("SAFE MODE ENABLED")
@@ -173,6 +174,9 @@ async def run_migrations():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await run_migrations()
+    from fastapi_cache import FastAPICache
+
+    FastAPICache.init(backend=InMemoryBackend(), prefix="fastapi-cache")
     yield
 
 
@@ -820,6 +824,8 @@ async def update_embedding_function(request: Request, call_next):
     response = await call_next(request)
     if "/embedding/update" in request.url.path:
         webui_app.state.EMBEDDING_FUNCTION = rag_app.state.EMBEDDING_FUNCTION
+    if "ws/" in request.url.path:
+        return response
     return response
 
 

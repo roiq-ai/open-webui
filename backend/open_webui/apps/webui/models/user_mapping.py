@@ -67,4 +67,5 @@ class UserMappingTable:
             await db.commit()
             return form
 
+
 UserMappings = UserMappingTable()

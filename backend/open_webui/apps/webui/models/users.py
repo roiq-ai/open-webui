@@ -5,7 +5,17 @@ from dateutil.relativedelta import relativedelta
 from open_webui.apps.webui.internal.db import Base, JSONField, get_db
 from open_webui.apps.webui.models.chats import Chats
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import BigInteger, Column, String, Text, delete, func, select, update, and_
+from sqlalchemy import (
+    BigInteger,
+    Column,
+    String,
+    Text,
+    delete,
+    func,
+    select,
+    update,
+    and_,
+)
 import sqlalchemy.sql.functions as func
 from sqlalchemy.types import Date
 
@@ -63,9 +73,13 @@ class UserModel(BaseModel):
 # Forms
 ####################
 
+
 class DAUForm(BaseModel):
-    start_date: Optional[Union[str,date]] = (datetime.today() - relativedelta(days=7)).date()
-    end_date: Optional[Union[str,date]] = datetime.today().date()
+    start_date: Optional[Union[str, date]] = (
+        datetime.today() - relativedelta(days=7)
+    ).date()
+    end_date: Optional[Union[str, date]] = datetime.today().date()
+
 
 class UserRoleUpdateForm(BaseModel):
     id: str
@@ -139,7 +153,7 @@ class UsersTable:
 
     async def get_users(self, skip: int = 0, limit: int = 50) -> List[UserModel]:
         async with get_db() as db:
-            users = await db.execute(select(User).offset(skip).limit(limit))
+            users = await db.execute(select(User))
             return [UserModel.model_validate(user) for user in users.scalars()]
 
     async def get_num_users(self) -> Optional[int]:
@@ -229,9 +243,7 @@ class UsersTable:
 
     async def get_dau(self, form: DAUForm) -> List[UserModel]:
         async with get_db() as db:
-            stmt = select(
-                User
-            ).where(
+            stmt = select(User).where(
                 and_(
                     *[
                         User.last_active_at >= time.mktime(form.start_date.timetuple()),
@@ -241,7 +253,6 @@ class UsersTable:
             users = await db.execute(stmt)
             users = users.scalars().all()
             return users
-
 
 
 Users = UsersTable()

@@ -1390,8 +1390,10 @@ async def generate_title(form_data: dict, user=Depends(get_verified_user)):
     print("generate_title")
 
     account_detail = await UserMappings.get_user_mapping_by_email(user.email)
-    account_name = account_detail.account_name
-
+    template = app.state.config.TITLE_GENERATION_PROMPT_TEMPLATE
+    if account_detail:
+        account_name = account_detail.account_name
+        template = f"The title must start with the dealership {account_name} name " + template
     model_id = form_data["model"]
     if model_id not in app.state.MODELS:
         raise HTTPException(
@@ -1407,9 +1409,7 @@ async def generate_title(form_data: dict, user=Depends(get_verified_user)):
     print(model_id)
 
 
-    template = app.state.config.TITLE_GENERATION_PROMPT_TEMPLATE
 
-    template = f"The title must start with the dealership {account_name} name " + template
 
     content = title_generation_template(
         template,

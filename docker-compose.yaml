@@ -14,16 +14,6 @@ services:
       - ./ignore/data/pg_data/:/var/lib/postgresql/data
     command: postgres -c 'max_connections=1000'
 
-  ollama:
-    volumes:
-      - ollama:/root/.ollama
-    container_name: ollama
-    pull_policy: always
-    tty: true
-    restart: unless-stopped
-    image: ollama/ollama:${OLLAMA_DOCKER_TAG-latest}
-    ports:
-      - ${OLLAMA_WEBAPI_PORT-11434}:11434
 
   open-webui:
     extra_hosts:
@@ -37,7 +27,6 @@ services:
     volumes:
       - ./backend:/app/backend
     depends_on:
-      - ollama
       - postgres
     ports:
       - ${OPEN_WEBUI_PORT-3000}:8080

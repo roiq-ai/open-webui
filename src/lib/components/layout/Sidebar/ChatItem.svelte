@@ -120,8 +120,8 @@
 			on:focus={(e) => {}}
 			draggable="false"
 		>
-			<div class=" flex self-center flex-1 w-full">
-				<div class=" text-left self-center overflow-hidden w-full h-[20px]">
+			<div class="flex-nowrap w-full">
+				<div style="width: 100%; overflow-wrap: normal; height: fit-content; white-space: normal">
 					{chat.title}
 				</div>
 			</div>

@@ -23,7 +23,7 @@ services:
 
   open-webui-email:
 
-    image: 875668830489.dkr.ecr.us-east-1.amazonaws.com/open-webui:latest
+    image: 875668830489.dkr.ecr.us-east-1.amazonaws.com/open-webui:0.8.0
     ports:
       - "3002:8080"
     volumes:
@@ -41,7 +41,7 @@ services:
 
 
   open-webui:
-    image: 875668830489.dkr.ecr.us-east-1.amazonaws.com/open-webui:latest
+    image: 875668830489.dkr.ecr.us-east-1.amazonaws.com/open-webui:0.8.0
 
     deploy:
       resources:

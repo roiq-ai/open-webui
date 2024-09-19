@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Literal, Optional, overload
 
 import aiohttp
+import httpx
 import requests
 from open_webui.apps.webui.models.models import Models
 from open_webui.config import (
@@ -26,6 +27,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 from starlette.background import BackgroundTask
+from fastapi_cache.decorator import cache
 
 
 from open_webui.utils.payload import (
@@ -295,6 +297,7 @@ async def get_all_models(raw=False) -> dict[str, list] | list:
 
 @app.get("/models")
 @app.get("/models/{url_idx}")
+@cache(60)
 async def get_models(url_idx: Optional[int] = None, user=Depends(get_verified_user)):
     if url_idx is None:
         models = await get_all_models()
@@ -319,10 +322,10 @@ async def get_models(url_idx: Optional[int] = None, user=Depends(get_verified_us
         r = None
 
         try:
-            r = requests.request(method="GET", url=f"{url}/models", headers=headers)
-            r.raise_for_status()
+            async with httpx.AsyncClient() as client:
 
-            response_data = r.json()
+                r = await client.request(method="GET", url=f"{url}/models", headers=headers)
+                response_data = r.json()
             if "api.openai.com" in url:
                 response_data["data"] = list(
                     filter(lambda model: "gpt" in model["id"], response_data["data"])
@@ -401,23 +404,22 @@ async def generate_chat_completion(
     streaming = False
 
     try:
-        session = aiohttp.ClientSession(
-            trust_env=True, timeout=aiohttp.ClientTimeout(total=AIOHTTP_CLIENT_TIMEOUT)
-        )
-        r = await session.request(
-            method="POST",
-            url=f"{url}/chat/completions",
-            data=payload,
-            headers=headers,
-        )
+        async with  httpx.AsyncClient(
+            trust_env=True
+        ) as session:
+            r = await session.post(
+                url=f"{url}/chat/completions",
+                json=payload,
+                headers=headers,
+            )
 
-        r.raise_for_status()
+            r.raise_for_status()
 
         # Check if response is SSE
         if "text/event-stream" in r.headers.get("Content-Type", ""):
             streaming = True
             return StreamingResponse(
-                r.content,
+                r.aiter_text(),
                 status_code=r.status,
                 headers=dict(r.headers),
                 background=BackgroundTask(
@@ -425,7 +427,7 @@ async def generate_chat_completion(
                 ),
             )
         else:
-            response_data = await r.json()
+            response_data = r.json()
             return response_data
     except Exception as e:
         log.exception(e)
@@ -466,26 +468,23 @@ async def proxy(path: str, request: Request, user=Depends(get_verified_user)):
     streaming = False
 
     try:
-        session = aiohttp.ClientSession(trust_env=True)
-        r = await session.request(
-            method=request.method,
-            url=target_url,
-            data=body,
-            headers=headers,
-        )
+        async with httpx.AsyncClient(trust_env=True) as session:
+            r = await session.request(
+                method=request.method,
+                url=target_url,
+                json=body,
+                headers=headers,
+            )
 
-        r.raise_for_status()
+            r.raise_for_status()
 
         # Check if response is SSE
         if "text/event-stream" in r.headers.get("Content-Type", ""):
             streaming = True
             return StreamingResponse(
-                r.content,
-                status_code=r.status,
+                r.aiter_text(),
+                status_code=r.status_code,
                 headers=dict(r.headers),
-                background=BackgroundTask(
-                    cleanup_response, response=r, session=session
-                ),
             )
         else:
             response_data = await r.json()

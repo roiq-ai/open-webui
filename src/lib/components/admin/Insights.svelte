@@ -22,9 +22,8 @@
 				labels.push(record.last_active_at);
 				stats.push(record.email);
 			});
-			loading = false;
 		} else {
-			loading = false;
+			return;
 		}
 		console.log(labels);
 		chart = new Chart(ctx, {

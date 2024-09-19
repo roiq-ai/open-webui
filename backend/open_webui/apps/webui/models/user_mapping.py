@@ -13,6 +13,7 @@ class UserMapping(Base):
     account_id = Column(String)
     email = Column(String)
     daterange = Column(String)
+    account_name = Column(String)
 
 
 class UserMappingModel(BaseModel):

@@ -72,7 +72,6 @@
 			src="{WEBUI_BASE_URL}/api/v1/files/{token.fileId}/content"
 			title={token.fileId}
 			width="100%"
-			allow="fullscreen *"
 			frameborder="0"
 			onload="this.style.height=(this.contentWindow.document.body.scrollHeight+20)+'px';"
 		></iframe>

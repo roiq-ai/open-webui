@@ -36,6 +36,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import RedirectResponse, Response, StreamingResponse
 
+from open_webui.apps.webui.models.user_mapping import UserMappings
 from open_webui.apps.audio.main import app as audio_app
 from open_webui.apps.images.main import app as images_app
 from open_webui.apps.ollama.main import app as ollama_app
@@ -125,6 +126,7 @@ from open_webui.utils.utils import (
 )
 from open_webui.utils.webhook import post_webhook
 from fastapi_cache.backends.inmemory import InMemoryBackend
+from fastapi_cache.decorator import cache
 
 if SAFE_MODE:
     print("SAFE MODE ENABLED")
@@ -731,8 +733,10 @@ def filter_pipeline(payload, user):
 class PipelineMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         if not is_chat_completion_request(request):
-            return await call_next(request)
-
+            response =  await call_next(request)
+            if not response:
+                print("No response from", request.url)
+            return response
         log.debug(f"request.url.path: {request.url.path}")
 
         # Read the original request body
@@ -824,8 +828,8 @@ async def update_embedding_function(request: Request, call_next):
     response = await call_next(request)
     if "/embedding/update" in request.url.path:
         webui_app.state.EMBEDDING_FUNCTION = rag_app.state.EMBEDDING_FUNCTION
-    if "ws/" in request.url.path:
-        return response
+    if not response:
+        print("No response from", request.url)
     return response
 
 
@@ -1385,6 +1389,9 @@ async def update_task_config(form_data: TaskConfigForm, user=Depends(get_admin_u
 async def generate_title(form_data: dict, user=Depends(get_verified_user)):
     print("generate_title")
 
+    account_detail = await UserMappings.get_user_mapping_by_email(user.email)
+    account_name = account_detail.account_name
+
     model_id = form_data["model"]
     if model_id not in app.state.MODELS:
         raise HTTPException(
@@ -1396,9 +1403,13 @@ async def generate_title(form_data: dict, user=Depends(get_verified_user)):
     # If the user has a custom task model, use that model
     model_id = get_task_model_id(model_id)
 
+
     print(model_id)
 
+
     template = app.state.config.TITLE_GENERATION_PROMPT_TEMPLATE
+
+    template = f"The title must start with the dealership {account_name} name " + template
 
     content = title_generation_template(
         template,
@@ -1438,7 +1449,6 @@ async def generate_title(form_data: dict, user=Depends(get_verified_user)):
         del payload["chat_id"]
 
     return await generate_chat_completions(form_data=payload, user=user)
-
 
 @app.post("/api/task/query/completions")
 async def generate_search_query(form_data: dict, user=Depends(get_verified_user)):

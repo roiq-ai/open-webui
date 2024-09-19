@@ -4,6 +4,7 @@ from open_webui.config import BannerModel
 from fastapi import APIRouter, Depends, Request
 from open_webui.utils.utils import get_admin_user, get_verified_user
 from pydantic import BaseModel
+from fastapi_cache.decorator import cache
 
 router = APIRouter()
 
@@ -66,6 +67,7 @@ async def set_banners(
 
 
 @router.get("/banners", response_model=List[BannerModel])
+@cache(60*60)
 async def get_banners(
     request: Request,
     user=Depends(get_verified_user),

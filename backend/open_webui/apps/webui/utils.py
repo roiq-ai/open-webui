@@ -2,6 +2,7 @@ import os
 import re
 import subprocess
 import sys
+import traceback
 from importlib import util
 import types
 
@@ -133,10 +134,10 @@ async def load_function_module_by_id(function_id, content=None):
         else:
             raise Exception("No Function class found in the module")
     except Exception as e:
-        print(f"Error loading module: {function_id}")
+        print(f"Error loading module: {traceback.format_exc()}")
         del sys.modules[module_name]  # Cleanup by removing the module in case of error
 
-        Functions.update_function_by_id(function_id, {"is_active": False})
+        await Functions.update_function_by_id(function_id, {"is_active": False})
         raise e
 
 

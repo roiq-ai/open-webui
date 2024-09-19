@@ -83,7 +83,7 @@
 		// Reset pagination variables
 		currentChatPage.set(1);
 		allChatsLoaded = false;
-		await chats.set(await getChatList(localStorage.token, $currentChatPage));
+		chats.set(await getChatList(localStorage.token, $currentChatPage));
 
 		// Enable pagination
 		scrollPaginationEnabled.set(true);
@@ -96,10 +96,11 @@
 		const newChatList = await getChatList(localStorage.token, $currentChatPage);
 
 		// once the bottom of the list has been reached (no results) there is no need to continue querying
+
 		await chats.set([...$chats, ...newChatList]);
+		allChatsLoaded = true;
 
 		chatListLoading = false;
-		allChatsLoaded = true;
 	};
 
 	onMount(async () => {

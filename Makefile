@@ -26,7 +26,7 @@ build:
 	docker build -t open-webui . --platform linux/amd64
 
 .PHONY: push
-push:  build login
+push: bump-version build login
 	docker tag open-webui ${ECR}:${TAG}
 	docker push ${ECR}:${TAG}
 

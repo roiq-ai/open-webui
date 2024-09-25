@@ -1,6 +1,10 @@
 import asyncio
+import os
 from logging.config import fileConfig
+import sys
+from pathlib import Path
 
+sys.path.append(Path(os.path.dirname(__file__)).parent.parent.__str__())
 from alembic import context
 from open_webui.config import DATABASE_URL
 from open_webui.apps.webui.internal.db import Base, engine

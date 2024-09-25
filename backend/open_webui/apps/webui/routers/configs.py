@@ -67,7 +67,7 @@ async def set_banners(
 
 
 @router.get("/banners", response_model=List[BannerModel])
-@cache(60*60)
+@cache(60 * 60)
 async def get_banners(
     request: Request,
     user=Depends(get_verified_user),

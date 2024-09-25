@@ -733,7 +733,7 @@ def filter_pipeline(payload, user):
 class PipelineMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         if not is_chat_completion_request(request):
-            response =  await call_next(request)
+            response = await call_next(request)
             if not response:
                 print("No response from", request.url)
             return response
@@ -1393,7 +1393,9 @@ async def generate_title(form_data: dict, user=Depends(get_verified_user)):
     template = app.state.config.TITLE_GENERATION_PROMPT_TEMPLATE
     if account_detail:
         account_name = account_detail.account_name
-        template = f"The title must start with the dealership {account_name} name " + template
+        template = (
+            f"The title must start with the dealership {account_name} name " + template
+        )
     model_id = form_data["model"]
     if model_id not in app.state.MODELS:
         raise HTTPException(
@@ -1405,11 +1407,7 @@ async def generate_title(form_data: dict, user=Depends(get_verified_user)):
     # If the user has a custom task model, use that model
     model_id = get_task_model_id(model_id)
 
-
     print(model_id)
-
-
-
 
     content = title_generation_template(
         template,
@@ -1449,6 +1447,7 @@ async def generate_title(form_data: dict, user=Depends(get_verified_user)):
         del payload["chat_id"]
 
     return await generate_chat_completions(form_data=payload, user=user)
+
 
 @app.post("/api/task/query/completions")
 async def generate_search_query(form_data: dict, user=Depends(get_verified_user)):

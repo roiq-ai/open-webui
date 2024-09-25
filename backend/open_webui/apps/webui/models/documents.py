@@ -6,10 +6,22 @@ from typing import List, Optional
 from open_webui.config import SRC_LOG_LEVELS
 from open_webui.apps.webui.internal.db import Base, get_db
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import BigInteger, Column, String, Text, delete, select, update
+from sqlalchemy import (
+    BigInteger,
+    Column,
+    String,
+    Text,
+    delete,
+    select,
+    update,
+    or_,
+    text,
+)
+from sqlalchemy.dialects.postgresql.json import JSONB
 
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["MODELS"])
+
 
 ####################
 # Documents DB Schema
@@ -19,6 +31,7 @@ log.setLevel(SRC_LOG_LEVELS["MODELS"])
 class Document(Base):
     __tablename__ = "document"
 
+    id = Column(BigInteger)
     collection_name = Column(String, primary_key=True)
     name = Column(String, unique=True)
     title = Column(Text)
@@ -86,12 +99,41 @@ class DocumentsTable:
             if result:
                 return DocumentModel.model_validate(result)
 
+    async def get_documents_by_tag(self):
+        async with get_db() as db:
+            stmt = text(
+                """
+            SELECT collection_name
+            FROM document
+            WHERE id in (SELECT id
+             FROM (SELECT id,
+                          json_extract_path_text(json_array_elements(
+                                                         json_extract_path_text(content::json, 'tags')::json)::json,
+                                                 'name') AS tag
+                   FROM document
+                   WHERE content ilike '%{"tags"%') as idz
+             WHERE tag = 'dealerx')
+                """
+            )
+            result = await db.execute(stmt)
+            idz = [x for x in result.scalars()]
+            stmt = select(Document).where(Document.collection_name.in_(idz))
+            results = await db.execute(stmt)
+            results = results.scalars()
+
+            if results:
+                return [DocumentModel.model_validate(doc) for doc in results]
+            return []
+
     async def get_documents_by_account(self, name):
-        print(name)
         async with get_db() as db:
             stmt = select(Document).where(Document.collection_name.like(f"%{name}%"))
             result = await db.execute(stmt)
-            return [DocumentModel.model_validate(doc) for doc in result.scalars()]
+            results = result.scalars()
+            if results:
+                return [
+                    DocumentModel.model_validate(doc) for doc in results
+                ] + await self.get_documents_by_tag()
 
     async def get_doc_by_name(self, name: str) -> Optional[DocumentModel]:
         async with get_db() as db:

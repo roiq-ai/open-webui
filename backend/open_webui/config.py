@@ -969,8 +969,8 @@ if not os.environ.get("TEST"):
     CHROMA_DATA_PATH = f"{DATA_DIR}/vector_db"
     CHROMA_TENANT = os.environ.get("CHROMA_TENANT", chromadb.DEFAULT_TENANT)
     CHROMA_DATABASE = os.environ.get("CHROMA_DATABASE", chromadb.DEFAULT_DATABASE)
-    CHROMA_HTTP_HOST = os.environ.get("CHROMA_HTTP_HOST", "")
-    CHROMA_HTTP_PORT = int(os.environ.get("CHROMA_HTTP_PORT", "8000"))
+    CHROMA_HTTP_HOST = os.environ.get("CHROMA_HTTP_HOST", "localhost")
+    CHROMA_HTTP_PORT = int(os.environ.get("CHROMA_HTTP_PORT", "9099"))
     # Comma-separated list of header=value pairs
     CHROMA_HTTP_HEADERS = os.environ.get("CHROMA_HTTP_HEADERS", "")
     if CHROMA_HTTP_HEADERS:

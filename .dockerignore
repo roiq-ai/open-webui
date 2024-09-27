@@ -288,7 +288,8 @@ web_modules/
 .yarn/install-state.gz
 .pnp.*
 
-infrastructure
-proxy
+.infrastructure/
+.proxy/
 
-.ruff_cache/
+.ruff_cache//proxy/
+/.svelte-kit/

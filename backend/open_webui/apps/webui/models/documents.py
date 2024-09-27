@@ -16,6 +16,7 @@ from sqlalchemy import (
     update,
     or_,
     text,
+Integer
 )
 from sqlalchemy.dialects.postgresql.json import JSONB
 
@@ -28,10 +29,12 @@ log.setLevel(SRC_LOG_LEVELS["MODELS"])
 ####################
 
 
+
+
 class Document(Base):
     __tablename__ = "document"
 
-    id = Column(BigInteger)
+    id = Column(Integer, autoincrement=True)
     collection_name = Column(String, primary_key=True)
     name = Column(String, unique=True)
     title = Column(Text)
@@ -105,8 +108,8 @@ class DocumentsTable:
                 """
             SELECT collection_name
             FROM document
-            WHERE id in (SELECT id
-             FROM (SELECT id,
+            WHERE collection_name in (SELECT collection_name
+             FROM (SELECT collection_name,
                           json_extract_path_text(json_array_elements(
                                                          json_extract_path_text(content::json, 'tags')::json)::json,
                                                  'name') AS tag

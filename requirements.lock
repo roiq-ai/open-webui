@@ -96,7 +96,7 @@ charset-normalizer==3.3.2
     # via unstructured-client
 chroma-hnswlib==0.7.6
     # via chromadb
-chromadb==0.5.5
+chromadb==0.5.11
     # via langchain-chroma
     # via open-webui
 click==8.1.7
@@ -600,6 +600,7 @@ requests==2.32.2
 requests-oauthlib==2.0.0
     # via kubernetes
 rich==13.7.1
+    # via chromadb
     # via typer
 rsa==4.9
     # via google-auth

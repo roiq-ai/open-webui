@@ -2,7 +2,7 @@ RYE := $(shell command -v rye 2> /dev/null)
 BACKEND := $(shell pwd)/backend
 AWS_ACCOUNT=875668830489
 AWS_REGION=us-east-1
-ECR := ${AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com/open-webui
+ECR := 875668830489.dkr.ecr.us-east-1.amazonaws.com/roiqai-service
 TAG := $(shell rye version)
 
 ifneq ($(shell which docker-compose 2>/dev/null),)
@@ -23,7 +23,7 @@ login:
 
 .PHONY: build
 build:
-	docker build -t open-webui . --platform linux/amd64
+	docker build -t open-webui .  --platform linux/amd64
 
 .PHONY: push
 push: bump-version build login

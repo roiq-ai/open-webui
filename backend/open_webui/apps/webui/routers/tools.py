@@ -1,4 +1,5 @@
 import os
+import traceback
 from pathlib import Path
 from typing import List, Optional
 
@@ -83,7 +84,7 @@ async def create_new_toolkit(
                     detail=ERROR_MESSAGES.DEFAULT("Error creating toolkit"),
                 )
         except Exception as e:
-            print(e)
+            print(traceback.print_exc())
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=ERROR_MESSAGES.DEFAULT(str(e)),

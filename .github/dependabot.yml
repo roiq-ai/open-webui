@@ -1,10 +1,10 @@
 version: 2
 updates:
   - package-ecosystem: pip
-    directory: '/backend'
+    directory: ./pyproject.toml
     schedule:
       interval: monthly
-    target-branch: 'dev'
+    target-branch: 'roiq-ai'
   - package-ecosystem: 'github-actions'
     directory: '/'
     schedule:

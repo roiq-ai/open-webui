@@ -323,9 +323,8 @@ async def get_models(url_idx: Optional[int] = None, user=Depends(get_verified_us
 
         try:
             async with httpx.AsyncClient() as client:
-                r = await client.request(
-                    method="GET", url=f"{url}/models", headers=headers
-                )
+
+                r = await client.request(method="GET", url=f"{url}/models", headers=headers)
                 response_data = r.json()
             if "api.openai.com" in url:
                 response_data["data"] = list(

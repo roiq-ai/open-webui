@@ -3,7 +3,7 @@ name: Build and Push to ECR
 on:
   push:
     branches:
-      roiq-ai
+      - roiq-ai
 
 jobs:
   build-and-push-image:

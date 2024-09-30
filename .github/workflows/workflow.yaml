@@ -31,7 +31,7 @@ jobs:
         curl -sSf https://rye.astral.sh/get  | bash
         source "$HOME/.rye/env"
         rye version -b minor
-        echo "VERSION=$(rye version)" >> $GITHUB_OUTPUT
+        echo "::set-output name=VERSION::$(rye version)"
 
     - name: Push commit
       run: |

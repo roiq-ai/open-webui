@@ -31,6 +31,7 @@ export const SUPPORTED_FILE_TYPE = [
 	'application/x-javascript',
 	'text/markdown',
 	'audio/mpeg',
+	'application/json',
 	'audio/wav'
 ];
 
@@ -90,7 +91,8 @@ export const SUPPORTED_FILE_EXTENSIONS = [
 	'xlsx',
 	'pptx',
 	'ppt',
-	'msg'
+	'msg',
+	'json'
 ];
 
 // Source: https://kit.svelte.dev/docs/modules#$env-static-public

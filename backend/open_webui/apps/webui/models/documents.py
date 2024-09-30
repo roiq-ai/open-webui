@@ -16,7 +16,7 @@ from sqlalchemy import (
     update,
     or_,
     text,
-Integer
+    Integer,
 )
 from sqlalchemy.dialects.postgresql.json import JSONB
 
@@ -27,8 +27,6 @@ log.setLevel(SRC_LOG_LEVELS["MODELS"])
 ####################
 # Documents DB Schema
 ####################
-
-
 
 
 class Document(Base):
@@ -102,10 +100,9 @@ class DocumentsTable:
             if result:
                 return DocumentModel.model_validate(result)
 
-    async def get_documents_by_tag(self):
+    async def get_documents_by_tag(self, user_id):
         async with get_db() as db:
-            stmt = text(
-                """
+            stmt = """
             SELECT collection_name
             FROM document
             WHERE collection_name in (SELECT collection_name
@@ -117,10 +114,11 @@ class DocumentsTable:
                    WHERE content ilike '%{"tags"%') as idz
              WHERE tag = 'dealerx')
                 """
-            )
-            result = await db.execute(stmt)
+            result = await db.execute(text(stmt))
             idz = [x for x in result.scalars()]
-            stmt = select(Document).where(Document.collection_name.in_(idz))
+            stmt = select(Document).where(
+                or_(Document.collection_name.in_(idz), Document.user_id == user_id)
+            )
             results = await db.execute(stmt)
             results = results.scalars()
 
@@ -128,7 +126,7 @@ class DocumentsTable:
                 return [DocumentModel.model_validate(doc) for doc in results]
             return []
 
-    async def get_documents_by_account(self, name):
+    async def get_documents_by_account(self, name, user_id):
         async with get_db() as db:
             stmt = select(Document).where(Document.collection_name.like(f"%{name}%"))
             result = await db.execute(stmt)
@@ -136,7 +134,7 @@ class DocumentsTable:
             if results:
                 return [
                     DocumentModel.model_validate(doc) for doc in results
-                ] + await self.get_documents_by_tag()
+                ] + await self.get_documents_by_tag(user_id)
 
     async def get_doc_by_name(self, name: str) -> Optional[DocumentModel]:
         async with get_db() as db:

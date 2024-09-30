@@ -31,14 +31,8 @@ jobs:
         curl -sSf https://rye.astral.sh/get  | bash
         source "$HOME/.rye/env"
         rye version -b minor
-        echo "::set-output name=VERSION::$(rye version)"
+        echo echo "VERSION=$(rye version)" >> $GITHUB_OUTPUT
 
-    - name: Push commit
-      run: |
-        git config --global user.name 'github-actions[bot]'
-        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-        git commit -am "minor: Bump release version to ${{ steps.get_version.VERSION }}"
-        git push
 
     - name: Login to Amazon ECR
       id: login-ecr
@@ -46,5 +40,12 @@ jobs:
 
     - name: Build, tag, and push docker image to Amazon ECR Public
       run: |
-        docker build -t $REPOSITORY:{{ steps.get_version.VERSION }}" .
-        docker push  $REPOSITORY:{{ steps.get_version.VERSION }}"
+        docker build -t $REPOSITORY:{{ steps.get_version.outputs.VERSION }}" .
+        docker push  $REPOSITORY:{{ steps.get_version.outputs.VERSION }}"
+
+    - name: Push commit
+      run: |
+        git config --global user.name 'github-actions[bot]'
+        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+        git commit -am "minor: Bump release version to ${{ steps.get_version.outputs.VERSION }}"
+        git push

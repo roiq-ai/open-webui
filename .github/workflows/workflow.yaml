@@ -45,5 +45,5 @@ jobs:
         IMAGE_TAG: :${{ steps.get_version.outputs.VERSION }}
 
       run: |
-        docker build --platform linux/amd64 -t $REPOSITORY:IMAGE_TAG .
+        docker build --platform linux/amd64 -t $REPOSITORY:$IMAGE_TAG .
         docker push  $REPOSITORY:$IMAGE_TAG

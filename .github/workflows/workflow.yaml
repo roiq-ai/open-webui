@@ -34,5 +34,5 @@ jobs:
         REPOSITORY: 875668830489.dkr.ecr.us-east-1.amazonaws.com/roiqai-service
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        docker build -t $REPOSITORY:$IMAGE_TAG
+        docker build -t $REPOSITORY:$IMAGE_TAG .
         docker push  $REPOSITORY:$IMAGE_TAG

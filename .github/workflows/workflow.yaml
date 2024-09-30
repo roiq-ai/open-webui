@@ -56,10 +56,10 @@ jobs:
         context: .
         file: ./Dockerfile
         push: true
-        tags: $REPOSITORY:$IMAGE_TAG
+        tags: ${{env.REPOSITORY}}:${{env.IMAGE_TAG}}
         builder: builder
-        cache-from: type=registry,ref=$REPOSITORY:cache
-        cache-to: type=registry,mode=max,image-manifest=true,oci-mediatypes=true,ref=$REPOSITORY:cache
+        cache-from: type=registry,ref=${{env.REPOSITORY}}:cache
+        cache-to: type=registry,mode=max,image-manifest=true,oci-mediatypes=true,ref=${{env.REPOSITORY}}:cache
 
     - name: Push commit
       run: |

@@ -23,16 +23,27 @@ jobs:
         role-to-assume: arn:aws:iam::875668830489:role/GithubActionsRole
         aws-region: us-east-1
         audience: sts.amazonaws.com
+    - name: Bump Version
+      id: get_version
+      run: |
+        echo "Bumping version"
+        pip install rye
+        rye version -b minor
+        echo "VERSION=$(rye version)" >> $GITHUB_OUTPUT
+
+    - name: Push commit
+      run: |
+        git config --global user.name 'github-actions[bot]'
+        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+        git commit -am "minor: Bump release version to ${{ steps.get_version.VERSION }}"
+        git push
 
     - name: Login to Amazon ECR
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v2
 
     - name: Build, tag, and push docker image to Amazon ECR Public
-      env:
-        ALIAS:  roiqai-service
-        REPOSITORY: 875668830489.dkr.ecr.us-east-1.amazonaws.com/roiqai-service
-        IMAGE_TAG: ${{ github.sha }}
+      uses: docker/build-push-action@v6
       run: |
-        docker build -t $REPOSITORY:$IMAGE_TAG .
-        docker push  $REPOSITORY:$IMAGE_TAG
+        docker build -t $REPOSITORY:{{ steps.get_version.VERSION }}" .
+        docker push  $REPOSITORY:{{ steps.get_version.VERSION }}"

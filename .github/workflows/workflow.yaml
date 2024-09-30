@@ -7,7 +7,8 @@ on:
 
 permissions:  write-all
 
-
+env:
+  REPOSITORY: 875668830489.dkr.ecr.us-east-1.amazonaws.com/roiqai-service
 
 jobs:
   build-and-push-image:
@@ -48,3 +49,25 @@ jobs:
       run: |
         docker build --platform linux/amd64 -t $REPOSITORY:$IMAGE_TAG .
         docker push  $REPOSITORY:$IMAGE_TAG
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Create and use a new builder instance
+      run: |
+        docker buildx create --name builder --use
+
+    - name: Build and push
+      uses: docker/build-push-action@v5
+      env:
+        IMAGE_TAG: ${{ steps.get_version.outputs.VERSION }}
+
+      with:
+        context: .
+        platforms: linux/amd64
+        file: ./Dockerfile
+        push: true
+        tags: $REPOSITORY:$IMAGE_TAG
+        builder: builder
+        cache-from: type=registry,ref=$REPOSITORY:cache
+        cache-to: type=registry,mode=max,image-manifest=true,oci-mediatypes=true,ref=$REPOSITORY:cache

@@ -297,7 +297,6 @@ async def get_all_models(raw=False) -> dict[str, list] | list:
 
 @app.get("/models")
 @app.get("/models/{url_idx}")
-@cache(60)
 async def get_models(url_idx: Optional[int] = None, user=Depends(get_verified_user)):
     if url_idx is None:
         models = await get_all_models()

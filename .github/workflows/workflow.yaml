@@ -43,7 +43,6 @@ jobs:
       uses: aws-actions/amazon-ecr-login@v2
 
     - name: Build, tag, and push docker image to Amazon ECR Public
-      uses: docker/build-push-action@v6
       run: |
         docker build -t $REPOSITORY:{{ steps.get_version.VERSION }}" .
         docker push  $REPOSITORY:{{ steps.get_version.VERSION }}"

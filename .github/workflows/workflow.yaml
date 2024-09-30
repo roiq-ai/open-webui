@@ -93,7 +93,7 @@ jobs:
         git commit -am "minor: Bump release version to ${{ steps.get_version.VERSION }}"
         git push
 
-        runs-on: ubuntu-latest
+
     - name: Finish workflow
       id: slack-finish
       uses: slackapi/slack-github-action@v1.27.0

@@ -10,6 +10,7 @@ import types
 from open_webui.apps.webui.models.functions import Functions
 from open_webui.apps.webui.models.tools import Tools
 from open_webui.config import FUNCTIONS_DIR, TOOLS_DIR
+import tempfile
 
 
 def extract_frontmatter(content):
@@ -84,7 +85,15 @@ async def load_toolkit_module_by_id(toolkit_id, content=None):
     module = types.ModuleType(module_name)
     sys.modules[module_name] = module
 
+    # Create a temporary file and use it to define `__file__` so
+    # that it works as expected from the module's perspective.
+    temp_file = tempfile.NamedTemporaryFile(delete=False)
+
     try:
+        with open(temp_file.name, "w", encoding="utf-8") as f:
+            f.write(content)
+        module.__dict__["__file__"] = temp_file.name
+
         # Executing the modified content in the created module's namespace
         exec(content, module.__dict__)
         frontmatter = extract_frontmatter(content)
@@ -96,9 +105,11 @@ async def load_toolkit_module_by_id(toolkit_id, content=None):
         else:
             raise Exception("No Tools class found in the module")
     except Exception as e:
-        print(f"Error loading module: {toolkit_id}")
+        print(f"Error loading module: {toolkit_id}: {e}")
         del sys.modules[module_name]  # Clean up
         raise e
+    finally:
+        os.unlink(temp_file.name)
 
 
 async def load_function_module_by_id(function_id, content=None):
@@ -118,7 +129,14 @@ async def load_function_module_by_id(function_id, content=None):
     module = types.ModuleType(module_name)
     sys.modules[module_name] = module
 
+    # Create a temporary file and use it to define `__file__` so
+    # that it works as expected from the module's perspective.
+    temp_file = tempfile.NamedTemporaryFile(delete=False)
     try:
+        with open(temp_file.name, "w", encoding="utf-8") as f:
+            f.write(content)
+        module.__dict__["__file__"] = temp_file.name
+
         # Execute the modified content in the created module's namespace
         exec(content, module.__dict__)
         frontmatter = extract_frontmatter(content)
@@ -134,11 +152,13 @@ async def load_function_module_by_id(function_id, content=None):
         else:
             raise Exception("No Function class found in the module")
     except Exception as e:
-        print(f"Error loading module: {traceback.format_exc()}")
+        print(f"Error loading module: {function_id}: {e}")
         del sys.modules[module_name]  # Cleanup by removing the module in case of error
 
         await Functions.update_function_by_id(function_id, {"is_active": False})
         raise e
+    finally:
+        os.unlink(temp_file.name)
 
 
 def install_frontmatter_requirements(requirements):

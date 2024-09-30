@@ -40,12 +40,6 @@ jobs:
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v2
 
-    - name: Build, tag, and push docker image to Amazon ECR Public
-      env:
-        ALIAS:  roiqai-service
-        REPOSITORY: 875668830489.dkr.ecr.us-east-1.amazonaws.com/roiqai-service
-        IMAGE_TAG: ${{ steps.get_version.outputs.VERSION }}
-
       run: |
         docker build --platform linux/amd64 -t $REPOSITORY:$IMAGE_TAG .
         docker push  $REPOSITORY:$IMAGE_TAG

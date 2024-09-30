@@ -40,12 +40,12 @@ jobs:
 
     - name: Build, tag, and push docker image to Amazon ECR Public
       run: |
-        docker build -t $REPOSITORY:{{ steps.get_version.outputs.VERSION }}" .
-        docker push  $REPOSITORY:{{ steps.get_version.outputs.VERSION }}"
+        docker build -t $REPOSITORY:${{ steps.get_version.outputs.VERSION }}" .
+        docker push  $REPOSITORY:${{ steps.get_version.outputs.VERSION }}"
 
     - name: Push commit
       run: |
         git config --global user.name 'github-actions[bot]'
         git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-        git commit -am "minor: Bump release version to ${{ steps.get_version.outputs.VERSION }}"
+        git commit -am "minor: Bump package version to ${{ steps.get_version.outputs.VERSION }}"
         git push

@@ -5,9 +5,9 @@ on:
     branches:
       - roiq-main
 
-permissions:
-  id-token: write
-  contents: read
+permissions:  write-all
+
+
 
 jobs:
   build-and-push-image:

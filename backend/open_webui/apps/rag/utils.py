@@ -30,7 +30,7 @@ def query_doc(
         query_embeddings = embedding_function(query)
 
         result = collection.query(
-            query_embeddings=[query_embeddings],
+            query_texts=[query],
             n_results=k,
         )
         log.info(

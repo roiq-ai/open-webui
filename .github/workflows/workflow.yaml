@@ -40,14 +40,10 @@ jobs:
 
     - name: Build, tag, and push docker image to Amazon ECR Public
       env:
-        REPOSITORY: roiqai-service:latest 875668830489.dkr.ecr.us-east-1.amazonaws.com
-      run: |
-        docker build -t $REPOSITORY:${{ steps.get_version.outputs.VERSION }} .
-        docker push  $REPOSITORY:${{ steps.get_version.outputs.VERSION }}
+        ALIAS:  roiqai-service
+        REPOSITORY: 875668830489.dkr.ecr.us-east-1.amazonaws.com/roiqai-service
+        IMAGE_TAG: :${{ steps.get_version.outputs.VERSION }}
 
-    - name: Push commit
       run: |
-        git config --global user.name 'github-actions[bot]'
-        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-        git commit -am "minor: Bump package version to ${{ steps.get_version.outputs.VERSION }}"
-        git push
+        docker build --platform linux/amd64 -t $REPOSITORY:IMAGE_TAG .
+        docker push  $REPOSITORY:$IMAGE_TAG

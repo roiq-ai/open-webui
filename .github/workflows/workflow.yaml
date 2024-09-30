@@ -43,7 +43,7 @@ jobs:
       env:
         ALIAS:  roiqai-service
         REPOSITORY: 875668830489.dkr.ecr.us-east-1.amazonaws.com/roiqai-service
-        IMAGE_TAG: :${{ steps.get_version.outputs.VERSION }}
+        IMAGE_TAG: ${{ steps.get_version.outputs.VERSION }}
 
       run: |
         docker build --platform linux/amd64 -t $REPOSITORY:$IMAGE_TAG .

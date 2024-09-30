@@ -31,7 +31,8 @@ jobs:
         curl -sSf https://rye.astral.sh/get  | bash
         source "$HOME/.rye/env"
         rye version -b minor
-        echo echo "VERSION=$(rye version)" >> $GITHUB_OUTPUT
+        echo Version: $(rye version)
+        echo "VERSION=$(rye version)" >> $GITHUB_OUTPUT
 
 
     - name: Login to Amazon ECR

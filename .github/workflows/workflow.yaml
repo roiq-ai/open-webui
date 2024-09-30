@@ -28,7 +28,7 @@ jobs:
                 "type": "section",
                 "text": {
                   "type": "mrkdwn",
-                  "text": "GitHub Action build result: ${{ job.status }}\n ${{env.REPOSITORY}}:${{ env.IMAGE_TAG }}"
+                  "text": "GitHub Action build result: ${{ job.status }}\n${{env.REPOSITORY}}:${{ env.IMAGE_TAG }}"
                 }
               }
             ]

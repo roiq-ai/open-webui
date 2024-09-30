@@ -27,7 +27,7 @@ jobs:
       id: get_version
       run: |
         echo "Bumping version"
-        pip install rye
+        curl -sSf https://rye.astral.sh/get | bash
         rye version -b minor
         echo "VERSION=$(rye version)" >> $GITHUB_OUTPUT
 

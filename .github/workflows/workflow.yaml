@@ -25,7 +25,7 @@ jobs:
             "text": "Deployment started (In Progress)",
             "attachments": [
               {
-                "pretext": "Deployment started",
+                "pretext": "Deployment started for commit: ${{ github.event.head_commit.message }}",
                 "color": "dbab09",
                 "fields": [
                   {
@@ -104,7 +104,7 @@ jobs:
             "text": "Deployment finished (Completed)",
             "attachments": [
               {
-                "pretext": "Deployment finished",
+                "pretext": "Deployment finished for commit: ${{ github.event.head_commit.message }}",
                 "color": "28a745",
                 "fields": [
                   {

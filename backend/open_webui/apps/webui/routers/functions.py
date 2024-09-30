@@ -77,9 +77,6 @@ async def create_new_function(
                 user.id, function_type, form_data
             )
 
-            function_cache_dir = Path(CACHE_DIR) / "functions" / form_data.id
-            function_cache_dir.mkdir(parents=True, exist_ok=True)
-
             if function:
                 return function
             else:

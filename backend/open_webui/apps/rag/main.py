@@ -970,7 +970,7 @@ def store_data_in_vector_db(
 
 
 def store_text_in_vector_db(
-    text, metadata, collection_name, overwrite: bool = False
+    text, metadata, collection_name, overwrite: bool = True
 ) -> bool:
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=app.state.config.CHUNK_SIZE,
@@ -982,7 +982,7 @@ def store_text_in_vector_db(
 
 
 def store_docs_in_vector_db(
-    docs, collection_name, metadata: Optional[dict] = None, overwrite: bool = False
+    docs, collection_name, metadata: Optional[dict] = None, overwrite: bool = True
 ) -> bool:
     log.info(f"store_docs_in_vector_db {docs} {collection_name}")
 

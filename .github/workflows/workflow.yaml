@@ -29,6 +29,7 @@ jobs:
         echo "Bumping version"
         export RYE_INSTALL_OPTION="--yes"
         curl -sSf https://rye.astral.sh/get  | bash
+        source "$HOME/.rye/env"
         rye version -b minor
         echo "VERSION=$(rye version)" >> $GITHUB_OUTPUT
 

@@ -42,8 +42,8 @@ jobs:
       env:
         REPOSITORY: roiqai-service:latest 875668830489.dkr.ecr.us-east-1.amazonaws.com
       run: |
-        docker build -t $REPOSITORY:${{ steps.get_version.outputs.VERSION }}" .
-        docker push  $REPOSITORY:${{ steps.get_version.outputs.VERSION }}"
+        docker build -t $REPOSITORY:${{ steps.get_version.outputs.VERSION }} .
+        docker push  $REPOSITORY:${{ steps.get_version.outputs.VERSION }}
 
     - name: Push commit
       run: |

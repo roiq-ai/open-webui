@@ -15,8 +15,8 @@ jobs:
 
     runs-on: ubuntu-latest
     steps:
-    - name: Send custom JSON data to Slack workflow
-      id: slack
+    - name: Initialize Build
+      id: slack-initialize
       uses: slackapi/slack-github-action@v1.27.0
       with:
         channel-id: roiq-ai-releases
@@ -94,8 +94,8 @@ jobs:
         git push
 
         runs-on: ubuntu-latest
-    - name: Send custom JSON data to Slack workflow
-      id: slack
+    - name: Finish workflow
+      id: slack-finish
       uses: slackapi/slack-github-action@v1.27.0
       with:
         channel-id: roiq-ai-releases

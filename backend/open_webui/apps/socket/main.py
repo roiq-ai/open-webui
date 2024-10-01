@@ -109,7 +109,7 @@ async def remove_after_timeout(sid, model_id):
     try:
         await asyncio.sleep(TIMEOUT_DURATION)
         if model_id in USAGE_POOL:
-            print(USAGE_POOL[model_id]["sids"])
+            # print(USAGE_POOL[model_id]["sids"])
             USAGE_POOL[model_id]["sids"].remove(sid)
             USAGE_POOL[model_id]["sids"] = list(set(USAGE_POOL[model_id]["sids"]))
 

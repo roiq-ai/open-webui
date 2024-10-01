@@ -33,7 +33,7 @@ async def get_documents(user=Depends(get_verified_user)):
                     "content": json.loads(doc.content if doc.content else "{}"),
                 }
             )
-            for doc in await Documents.get_documents_by_tag(user.id)
+            for doc in await Documents.get_documents_by_user(user.id)
         ]
     docs = [
         DocumentResponse(

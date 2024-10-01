@@ -32,7 +32,6 @@ log.setLevel(SRC_LOG_LEVELS["MODELS"])
 class Document(Base):
     __tablename__ = "document"
 
-    id = Column(Integer, autoincrement=True)
     collection_name = Column(String, primary_key=True)
     name = Column(String, unique=True)
     title = Column(Text)
@@ -100,7 +99,7 @@ class DocumentsTable:
             if result:
                 return DocumentModel.model_validate(result)
 
-    async def get_documents_by_tag(self, user_id):
+    async def get_documents_by_user_stmt(self, user_id):
         async with get_db() as db:
             stmt = """
             SELECT collection_name
@@ -108,10 +107,10 @@ class DocumentsTable:
             WHERE collection_name in (SELECT collection_name
              FROM (SELECT collection_name,
                           json_extract_path_text(json_array_elements(
-                                                         json_extract_path_text(content::json, 'tags')::json)::json,
+                                                         json_extract_path_text(COALESCE(content,'')::json, 'tags')::json)::json,
                                                  'name') AS tag
                    FROM document
-                   WHERE content ilike '%{"tags"%') as idz
+                   WHERE content ilike '%{"tags"%' AND content IS NOT NULL) as idz
              WHERE tag = 'dealerx')
                 """
             result = await db.execute(text(stmt))
@@ -119,22 +118,25 @@ class DocumentsTable:
             stmt = select(Document).where(
                 or_(Document.collection_name.in_(idz), Document.user_id == user_id)
             )
-            results = await db.execute(stmt)
-            results = results.scalars()
+            return stmt
 
+    async def get_documents_by_user(self, user_id):
+        async with get_db() as db:
+            stmt = await self.get_documents_by_user_stmt(user_id)
+            result = await db.execute(stmt)
+            results = result.scalars()
             if results:
                 return [DocumentModel.model_validate(doc) for doc in results]
             return []
 
     async def get_documents_by_account(self, name, user_id):
         async with get_db() as db:
-            stmt = select(Document).where(Document.collection_name.like(f"%{name}%"))
+            stmt = await self.get_documents_by_user_stmt(user_id)
+            stmt = stmt.where(Document.collection_name.like(f"%{name}%"))
             result = await db.execute(stmt)
             results = result.scalars()
             if results:
-                return [
-                    DocumentModel.model_validate(doc) for doc in results
-                ] + await self.get_documents_by_tag(user_id)
+                return [DocumentModel.model_validate(doc) for doc in results]
 
     async def get_doc_by_name(self, name: str) -> Optional[DocumentModel]:
         async with get_db() as db:

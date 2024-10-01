@@ -1,11 +1,9 @@
 <script lang="ts">
 	import { toast } from 'svelte-sonner';
 	import dayjs from 'dayjs';
-	import { jsPDF } from 'jspdf';
-	import { svg2pdf } from 'svg2pdf.js';
+
 	import { createEventDispatcher } from 'svelte';
 	import { onMount, tick, getContext } from 'svelte';
-	import { Canvg, Document } from 'canvg';
 
 	const i18n = getContext<Writable<i18nType>>('i18n');
 
@@ -38,7 +36,6 @@
 
 	import type { Writable } from 'svelte/store';
 	import type { i18n as i18nType } from 'i18next';
-	import html2canvas from 'html2canvas';
 
 	interface MessageType {
 		id: string;
@@ -88,6 +85,8 @@
 
 	export let updateChatMessages: Function;
 	export let confirmEditResponseMessage: Function;
+	export let saveNewResponseMessage: Function = () => {};
+
 	export let showPreviousMessage: Function;
 	export let showNextMessage: Function;
 	export let rateMessage: Function;
@@ -205,6 +204,8 @@
 					const blob = await res.blob();
 					const blobUrl = URL.createObjectURL(blob);
 					const audio = new Audio(blobUrl);
+					audio.playbackRate = $settings.audio?.tts?.speedRate ?? 1;
+
 					audioParts[idx] = audio;
 					loadingSpeech = false;
 					lastPlayedAudioPromise = lastPlayedAudioPromise.then(() => playAudio(idx));
@@ -227,6 +228,7 @@
 					console.log(voice);
 
 					const speak = new SpeechSynthesisUtterance(message.content);
+					speak.rate = $settings.audio?.tts?.speedRate ?? 1;
 
 					console.log(speak);
 
@@ -270,57 +272,19 @@
 		await tick();
 	};
 
+	const saveNewMessageHandler = async () => {
+		saveNewResponseMessage(message, editedContent);
+
+		edit = false;
+		editedContent = '';
+
+		await tick();
+	};
+
 	const cancelEditMessage = async () => {
 		edit = false;
 		editedContent = '';
 		await tick();
-	};
-
-	function writeHtml(html) {
-		const doc = new jsPDF({
-			orientation: 'p',
-			unit: 'mm',
-			format: [1200, 2400]
-		});
-
-		doc
-			.html(html, {
-				// width: 2000,
-				autoPaging: 'slice'
-			})
-			.then(() => {
-				doc.save('message-' + message.id + '.pdf');
-			});
-	}
-
-	async function getImage(svg) {
-		const c = new OffscreenCanvas(svg.width.animVal.value, svg.height.animVal.value);
-		const ctx = c.getContext('2d');
-		const v = await Canvg.fromString(ctx, svg.outerHTML);
-		await v.render();
-		let blob = await c.convertToBlob();
-		return URL.createObjectURL(blob);
-	}
-
-	const downloadMessage = async (message: MessageType) => {
-		let divId = 'chat-' + message.role + '-' + message.id + '-response';
-
-		let chatMessage = document.getElementById(divId);
-		let svgs = chatMessage?.querySelectorAll('svg');
-		if (svgs !== undefined && svgs.length > 0) {
-			for (const svg of svgs) {
-				await getImage(svg).then((canvas) => {
-					let img = document.createElement('img');
-					img.src = canvas;
-					let elem = document.getElementById(svg.id);
-					let parent = elem?.parentElement;
-					parent?.replaceChild(img, elem);
-				});
-			}
-			writeHtml(chatMessage);
-		} else {
-			writeHtml(chatMessage);
-		}
 	};
 
 	const generateImage = async (message: MessageType) => {
@@ -383,17 +347,14 @@
 						{#each message.files as file}
 							<div>
 								{#if file.type === 'image'}
-									<Image src={file.url} />
+									<Image src={file.url} alt={message.content} />
 								{/if}
 							</div>
 						{/each}
 					</div>
 				{/if}
 
-				<div
-					class="chat-{message.role} w-full min-w-full markdown-prose"
-					id="chat-{message.role}-{message.id}-response"
-				>
+				<div class="chat-{message.role} w-full min-w-full markdown-prose">
 					<div>
 						{#if (message?.statusHistory ?? [...(message?.status ? [message?.status] : [])]).length > 0}
 							{@const status = (
@@ -452,31 +413,45 @@
 										const isEnterPressed = e.key === 'Enter';
 
 										if (isCmdOrCtrlPressed && isEnterPressed) {
-											document.getElementById('save-edit-message-button')?.click();
+											document.getElementById('confirm-edit-message-button')?.click();
 										}
 									}}
 								/>
 
-								<div class=" mt-2 mb-1 flex justify-end space-x-1.5 text-sm font-medium">
-									<button
-										id="close-edit-message-button"
-										class="px-4 py-2 bg-white hover:bg-gray-100 text-gray-800 transition rounded-3xl"
-										on:click={() => {
-											cancelEditMessage();
-										}}
-									>
-										{$i18n.t('Cancel')}
-									</button>
+								<div class=" mt-2 mb-1 flex justify-between text-sm font-medium">
+									<div>
+										<button
+											id="save-new-message-button"
+											class=" px-4 py-2 bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 border dark:border-gray-700 text-gray-700 dark:text-gray-200 transition rounded-3xl"
+											on:click={() => {
+												saveNewMessageHandler();
+											}}
+										>
+											{$i18n.t('Save As Copy')}
+										</button>
+									</div>
 
-									<button
-										id="save-edit-message-button"
-										class=" px-4 py-2 bg-gray-900 hover:bg-gray-850 text-gray-100 transition rounded-3xl"
-										on:click={() => {
-											editMessageConfirmHandler();
-										}}
-									>
-										{$i18n.t('Save')}
-									</button>
+									<div class="flex space-x-1.5">
+										<button
+											id="close-edit-message-button"
+											class="px-4 py-2 bg-white dark:bg-gray-900 hover:bg-gray-100 text-gray-800 dark:text-gray-100 transition rounded-3xl"
+											on:click={() => {
+												cancelEditMessage();
+											}}
+										>
+											{$i18n.t('Cancel')}
+										</button>
+
+										<button
+											id="confirm-edit-message-button"
+											class=" px-4 py-2 bg-gray-900 dark:bg-white hover:bg-gray-850 text-gray-100 dark:text-gray-800 transition rounded-3xl"
+											on:click={() => {
+												editMessageConfirmHandler();
+											}}
+										>
+											{$i18n.t('Save')}
+										</button>
+									</div>
 								</div>
 							</div>
 						{:else}
@@ -612,35 +587,6 @@
 												stroke-linecap="round"
 												stroke-linejoin="round"
 												d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"
-											/>
-										</svg>
-									</button>
-								</Tooltip>
-
-								<Tooltip content={$i18n.t('Download')} placement="bottom">
-									<button
-										class="{isLastMessage
-											? 'visible'
-											: 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg
-													 dark:hover:text-white hover:text-black transition"
-										on:click={async () => {
-											await downloadMessage(message);
-										}}
-									>
-										<svg
-											stroke="currentColor"
-											fill="none"
-											stroke-width="2.3"
-											viewBox="0 0 24 24"
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											class="w-4 h-4"
-											xmlns="http://www.w3.org/2000/svg"
-										>
-											<path
-												strokeLinecap="round"
-												strokeLinejoin="round"
-												d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"
 											/>
 										</svg>
 									</button>

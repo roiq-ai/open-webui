@@ -963,7 +963,6 @@ async def get_all_models():
 
             if hasattr(function_module, "actions"):
                 actions = function_module.actions
-                traceback.print_exc()
                 model["actions"].extend(
                     [
                         {

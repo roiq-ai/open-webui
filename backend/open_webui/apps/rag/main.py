@@ -984,26 +984,30 @@ def store_text_in_vector_db(
 def store_docs_in_vector_db(
     docs, collection_name, metadata: Optional[dict] = None, overwrite: bool = True
 ) -> bool:
-    log.info(f"store_docs_in_vector_db {docs} {collection_name}")
-
-    texts = [doc.page_content for doc in docs]
-    metadatas = [{**doc.metadata, **(metadata if metadata else {})} for doc in docs]
-
-    # ChromaDB does not like datetime formats
-    # for meta-data so convert them to string.
-    for metadata in metadatas:
-        for key, value in metadata.items():
-            if isinstance(value, datetime):
-                metadata[key] = str(value)
-
     try:
-        if overwrite:
-            for collection in CHROMA_CLIENT.list_collections():
-                if collection_name == collection.name:
-                    log.info(f"deleting existing collection {collection_name}")
-                    CHROMA_CLIENT.delete_collection(name=collection_name)
+        log.info(f"store_docs_in_vector_db {docs} {collection_name}")
 
-        collection = CHROMA_CLIENT.create_collection(name=collection_name)
+        texts = [doc.page_content for doc in docs]
+        metadatas = [{**doc.metadata, **(metadata if metadata else {})} for doc in docs]
+
+        # ChromaDB does not like datetime formats
+        # for meta-data so convert them to string.
+        for metadata in metadatas:
+            for key, value in metadata.items():
+                if isinstance(value, datetime):
+                    metadata[key] = str(value)
+
+        if overwrite:
+            try:
+                collection = CHROMA_CLIENT.get_collection(collection_name)
+            except ValueError:
+                CHROMA_CLIENT.delete_collection(name=collection_name)
+                collection = CHROMA_CLIENT.get_or_create_collection(
+                    name=collection_name
+                )
+
+        else:
+            collection = CHROMA_CLIENT.get_or_create_collection(name=collection_name)
 
         embedding_func = get_embedding_function(
             app.state.config.RAG_EMBEDDING_ENGINE,
@@ -1028,12 +1032,7 @@ def store_docs_in_vector_db(
 
         return True
     except Exception as e:
-        if e.__class__.__name__ == "UniqueConstraintError":
-            return True
-
         log.exception(e)
-
-        return False
 
 
 class TikaLoader:

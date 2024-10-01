@@ -75,18 +75,7 @@ async function* openAIStreamToIterator(
 				usage: parsedData.usage
 			};
 		} catch (e) {
-			if (e.message.includes('JSON') == true) {
-				console.log('Error extracting JSON from SSE event:');
-				const parsedBadData = JSON.parse(JSON.stringify(data));
-				console.log(value);
-				console.log(parsedBadData);
-				yield {
-					done: false,
-					value: parsedBadData
-				};
-			} else {
-				console.error('Error extracting delta from SSE event:', e);
-			}
+			console.error('Error extracting delta from SSE event:', e);
 		}
 	}
 }

@@ -23,7 +23,7 @@ services:
 
   open-webui-email:
 
-    image: 875668830489.dkr.ecr.us-east-1.amazonaws.com/roiqai-service:0.29.0
+    image: 875668830489.dkr.ecr.us-east-1.amazonaws.com/roiqai-service:0.35.0
     ports:
       - "3002:8080"
     volumes:
@@ -41,7 +41,7 @@ services:
 
 
   open-webui:
-    image: 875668830489.dkr.ecr.us-east-1.amazonaws.com/roiqai-service:0.29.0
+    image: 875668830489.dkr.ecr.us-east-1.amazonaws.com/roiqai-service:0.35.0
     deploy:
       resources:
         reservations:
@@ -62,7 +62,7 @@ services:
         awslogs-create-group: "true"
 
   api:
-    image: 875668830489.dkr.ecr.us-east-1.amazonaws.com/roiqai-api:0.11.0
+    image: 875668830489.dkr.ecr.us-east-1.amazonaws.com/roiqai-api:0.13.0
     ports:
       - "8585:8585"
     env_file:

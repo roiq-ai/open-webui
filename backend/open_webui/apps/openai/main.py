@@ -442,8 +442,7 @@ async def generate_chat_completion(
     finally:
         if not streaming and session:
             if r:
-                r.close()
-            await session.close()
+               r.close()
 
 
 @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])

@@ -22,14 +22,11 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.alter_column(
-        "document",
-        "content",
-        existing_type=sa.String(),
-        type_=JSONB(),
-        postgresql_using="content::jsonb",
+    op.add_column(
+        "username_mapping",
+        sa.Column("account_name", sa.String(), nullable=True),
     )
 
 
 def downgrade() -> None:
-    op.alter_column("document", "content", existing_type=JSONB(), type_=sa.String())
+    pass

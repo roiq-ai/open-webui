@@ -30,7 +30,7 @@ def query_doc(
         query_embeddings = embedding_function(query)
 
         result = collection.query(
-            query_texts=[query],
+            query_embeddings=[query_embeddings],
             n_results=k,
         )
         log.info(f"query_doc:result {result}")
@@ -67,18 +67,18 @@ def query_doc_with_hybrid_search(
             retrievers=[bm25_retriever, chroma_retriever], weights=[0.5, 0.5]
         )
 
-        compressor = RerankCompressor(
-            embedding_function=embedding_function,
-            top_n=k,
-            reranking_function=reranking_function,
-            r_score=r,
-        )
+        # compressor = RerankCompressor(
+        #     embedding_function=embedding_function,
+        #     top_n=k,
+        #     reranking_function=reranking_function,
+        #     r_score=r,
+        # )
+        #
+        # compression_retriever = ContextualCompressionRetriever(
+        #     base_compressor=compressor, base_retriever=ensemble_retriever
+        # )
 
-        compression_retriever = ContextualCompressionRetriever(
-            base_compressor=compressor, base_retriever=ensemble_retriever
-        )
-
-        result = compression_retriever.invoke(query)
+        result = chroma_retriever.invoke(query)
         result = {
             "distances": [[d.metadata.get("score") for d in result]],
             "documents": [[d.page_content for d in result]],
@@ -431,59 +431,59 @@ class ChromaRetriever(BaseRetriever):
         return results
 
 
-import operator
-from typing import Optional, Sequence
-
-from langchain_core.callbacks import Callbacks
-from langchain_core.documents import BaseDocumentCompressor, Document
-from langchain_core.pydantic_v1 import Extra
-
-
-class RerankCompressor(BaseDocumentCompressor):
-    embedding_function: Any
-    top_n: int
-    reranking_function: Any
-    r_score: float
-
-    class Config:
-        extra = Extra.forbid
-        arbitrary_types_allowed = True
-
-    def compress_documents(
-        self,
-        documents: Sequence[Document],
-        query: str,
-        callbacks: Optional[Callbacks] = None,
-    ) -> Sequence[Document]:
-        reranking = self.reranking_function is not None
-
-        if reranking:
-            scores = self.reranking_function.predict(
-                [(query, doc.page_content) for doc in documents]
-            )
-        else:
-            from sentence_transformers import util
-
-            query_embedding = self.embedding_function(query)
-            document_embedding = self.embedding_function(
-                [doc.page_content for doc in documents]
-            )
-            scores = util.cos_sim(query_embedding, document_embedding)[0]
-
-        docs_with_scores = list(zip(documents, scores.tolist()))
-        if self.r_score:
-            docs_with_scores = [
-                (d, s) for d, s in docs_with_scores if s >= self.r_score
-            ]
-
-        result = sorted(docs_with_scores, key=operator.itemgetter(1), reverse=True)
-        final_results = []
-        for doc, doc_score in result[: self.top_n]:
-            metadata = doc.metadata
-            metadata["score"] = doc_score
-            doc = Document(
-                page_content=doc.page_content,
-                metadata=metadata,
-            )
-            final_results.append(doc)
-        return final_results
+# import operator
+# from typing import Optional, Sequence
+#
+# from langchain_core.callbacks import Callbacks
+# from langchain_core.documents import BaseDocumentCompressor, Document
+# from langchain_core.pydantic_v1 import Extra
+#
+#
+# class RerankCompressor(BaseDocumentCompressor):
+#     embedding_function: Any
+#     top_n: int
+#     reranking_function: Any
+#     r_score: float
+#
+#     class Config:
+#         extra = Extra.forbid
+#         arbitrary_types_allowed = True
+#
+#     def compress_documents(
+#         self,
+#         documents: Sequence[Document],
+#         query: str,
+#         callbacks: Optional[Callbacks] = None,
+#     ) -> Sequence[Document]:
+#         reranking = self.reranking_function is not None
+#
+#         if reranking:
+#             scores = self.reranking_function.predict(
+#                 [(query, doc.page_content) for doc in documents]
+#             )
+#         else:
+#             from sentence_transformers import util
+#
+#             query_embedding = self.embedding_function(query)
+#             document_embedding = self.embedding_function(
+#                 [doc.page_content for doc in documents]
+#             )
+#             scores = util.cos_sim(query_embedding, document_embedding)[0]
+#
+#         docs_with_scores = list(zip(documents, scores.tolist()))
+#         if self.r_score:
+#             docs_with_scores = [
+#                 (d, s) for d, s in docs_with_scores if s >= self.r_score
+#             ]
+#
+#         result = sorted(docs_with_scores, key=operator.itemgetter(1), reverse=True)
+#         final_results = []
+#         for doc, doc_score in result[: self.top_n]:
+#             metadata = doc.metadata
+#             metadata["score"] = doc_score
+#             doc = Document(
+#                 page_content=doc.page_content,
+#                 metadata=metadata,
+#             )
+#             final_results.append(doc)
+#         return final_results

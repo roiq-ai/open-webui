@@ -10,11 +10,11 @@
 		/>
 		<meta name="theme-color" content="#171717" />
 		<meta name="robots" content="noindex,nofollow" />
-		<meta name="description" content="RoIQ" />
+		<meta name="description" content="Open WebUI" />
 		<link
 			rel="search"
 			type="application/opensearchdescription+xml"
-			title="RoIQ"
+			title="Open WebUI"
 			href="/opensearch.xml"
 		/>
 
@@ -61,6 +61,7 @@
 						if (e.matches) {
 							document.documentElement.classList.add('dark');
 							document.documentElement.classList.remove('light');
+							metaThemeColorTag.setAttribute('content', '#171717');
 						} else {
 							document.documentElement.classList.add('light');
 							document.documentElement.classList.remove('dark');
@@ -71,7 +72,7 @@
 			})();
 		</script>
 
-		<title>RoIQ</title>
+		<title>Open WebUI</title>
 
 		%sveltekit.head%
 	</head>

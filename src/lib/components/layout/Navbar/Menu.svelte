@@ -6,7 +6,7 @@
 	const { saveAs } = fileSaver;
 
 	import { downloadChatAsPDF } from '$lib/apis/utils';
-	import { copyToClipboard } from '$lib/utils';
+	import { copyToClipboard, createMessagesList } from '$lib/utils';
 
 	import { showOverview, showControls, mobile } from '$lib/stores';
 	import { flyAndScale } from '$lib/utils/transitions';
@@ -32,7 +32,9 @@
 
 	const getChatAsText = async () => {
 		const _chat = chat.chat;
-		const chatText = _chat.messages.reduce((a, message, i, arr) => {
+
+		const messages = createMessagesList(_chat.history, _chat.history.currentId);
+		const chatText = messages.reduce((a, message, i, arr) => {
 			return `${a}### ${message.role.toUpperCase()}\n${message.content}\n\n`;
 		}, '');
 
@@ -46,14 +48,16 @@
 			type: 'text/plain'
 		});
 
-		saveAs(blob, `chat-${_chat.title}.txt`);
+		saveAs(blob, `chat-${chat.chat.title}.txt`);
 	};
 
 	const downloadPdf = async () => {
 		const _chat = chat.chat;
+		const messages = createMessagesList(_chat.history, _chat.history.currentId);
+
 		console.log('download', chat);
 
-		const blob = await downloadChatAsPDF(_chat);
+		const blob = await downloadChatAsPDF(_chat.title, messages);
 
 		// Create a URL for the blob
 		const url = window.URL.createObjectURL(blob);

@@ -14,7 +14,15 @@
 		getChatListByTagName,
 		updateChatById
 	} from '$lib/apis/chats';
-	import { chatId, chats, mobile, pinnedChats, showSidebar, currentChatPage } from '$lib/stores';
+	import {
+		chatId,
+		chatTitle as _chatTitle,
+		chats,
+		mobile,
+		pinnedChats,
+		showSidebar,
+		currentChatPage
+	} from '$lib/stores';
 
 	import ChatMenu from './ChatMenu.svelte';
 	import ShareChatModal from '$lib/components/chat/ShareChatModal.svelte';
@@ -33,13 +41,17 @@
 
 	let chatTitle = chat.title;
 
-	const editChatTitle = async (id, _title) => {
-		if (_title === '') {
+	const editChatTitle = async (id, title) => {
+		if (title === '') {
 			toast.error($i18n.t('Title cannot be an empty string.'));
 		} else {
 			await updateChatById(localStorage.token, id, {
-				title: _title
+				title: title
 			});
+
+			if (id === $chatId) {
+				_chatTitle.set(title);
+			}
 
 			currentChatPage.set(1);
 			await chats.set(await getChatList(localStorage.token, $currentChatPage));
@@ -120,8 +132,8 @@
 			on:focus={(e) => {}}
 			draggable="false"
 		>
-			<div class="flex-nowrap w-full">
-				<div style="width: 100%; overflow-wrap: normal; height: fit-content; white-space: normal">
+			<div class=" flex self-center flex-1 w-full">
+				<div class=" text-left self-center overflow-hidden w-full h-[20px]">
 					{chat.title}
 				</div>
 			</div>

@@ -194,6 +194,8 @@ frozenlist==1.4.1
 fsspec==2024.3.1
     # via huggingface-hub
     # via torch
+ftfy==6.2.3
+    # via open-webui
 google-ai-generativelanguage==0.6.4
     # via google-generativeai
 google-api-core==2.19.0
@@ -595,6 +597,8 @@ rapidocr-onnxruntime==1.3.22
     # via open-webui
 red-black-tree-mod==1.20
     # via extract-msg
+redis==5.1.1
+    # via open-webui
 regex==2024.5.10
     # via nltk
     # via transformers
@@ -760,6 +764,8 @@ validators==0.28.1
     # via open-webui
 watchfiles==0.21.0
     # via uvicorn
+wcwidth==0.2.13
+    # via ftfy
 websocket-client==1.8.0
     # via kubernetes
 websockets==13.1

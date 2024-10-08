@@ -5,7 +5,7 @@ import os
 from contextlib import asynccontextmanager
 from typing import Any, Optional
 
-from open_webui.config import DATA_DIR, DATABASE_URL, SRC_LOG_LEVELS
+from open_webui.env import DATA_DIR
 from sqlalchemy import Dialect, types
 from sqlalchemy.ext.asyncio import (
     async_scoped_session,
@@ -17,8 +17,19 @@ from sqlalchemy.sql.type_api import _T
 from typing_extensions import Self
 from sqlalchemy.pool import NullPool
 
-log = logging.getLogger(__name__)
-log.setLevel(SRC_LOG_LEVELS["DB"])
+
+####################################
+# Database
+####################################
+
+DATABASE_URL = os.environ.get(
+    "DATABASE_URL", f"postgresql+asyncpg://postgres:postgres@localhost:5432/owebui"
+)
+
+# Replace the postgres:// with postgresql://
+if "postgres://" in DATABASE_URL:
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://")
+
 
 
 class JSONField(types.TypeDecorator):
@@ -42,14 +53,6 @@ class JSONField(types.TypeDecorator):
         if value is not None:
             return json.loads(value)
 
-
-# Check if the file exists
-if os.path.exists(f"{DATA_DIR}/ollama.db"):
-    # Rename the file
-    os.rename(f"{DATA_DIR}/ollama.db", f"{DATA_DIR}/webui.db")
-    log.info("Database migrated from Ollama-WebUI successfully.")
-else:
-    pass
 
 # Workaround to handle the peewee migration
 # This is required to ensure the peewee migration is handled before the alembic migration

@@ -9,61 +9,60 @@ import sys
 import time
 import traceback
 import uuid
+import asyncio
+
 from contextlib import asynccontextmanager
 from typing import Optional
 
 import aiohttp
 import requests
-from authlib.integrations.starlette_client import OAuth
-from authlib.oidc.core import UserInfo
-from fastapi import (
-    Depends,
-    FastAPI,
-    File,
-    Form,
-    HTTPException,
-    Request,
-    UploadFile,
-    status,
-)
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
-from sqlalchemy import text
-from starlette.exceptions import HTTPException as StarletteHTTPException
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.middleware.sessions import SessionMiddleware
-from starlette.responses import RedirectResponse, Response, StreamingResponse
 
-from open_webui.apps.webui.models.user_mapping import UserMappings
-from open_webui.apps.audio.main import app as audio_app
-from open_webui.apps.images.main import app as images_app
-from open_webui.apps.ollama.main import app as ollama_app
 from open_webui.apps.ollama.main import (
-    generate_openai_chat_completion as generate_ollama_chat_completion,
+    app as ollama_app,
+    get_all_models as get_ollama_models,
+    generate_chat_completion as generate_ollama_chat_completion,
+    generate_openai_chat_completion as generate_ollama_openai_chat_completion,
+    GenerateChatCompletionForm,
 )
-from open_webui.apps.ollama.main import get_all_models as get_ollama_models
-from open_webui.apps.openai.main import app as openai_app
 from open_webui.apps.openai.main import (
+    app as openai_app,
     generate_chat_completion as generate_openai_chat_completion,
+    get_all_models as get_openai_models,
 )
-from open_webui.apps.openai.main import get_all_models as get_openai_models
-from open_webui.apps.rag.main import app as rag_app
-from open_webui.apps.rag.utils import get_rag_context, rag_template
-from open_webui.apps.socket.main import app as socket_app
-from open_webui.apps.socket.main import get_event_call, get_event_emitter
-from open_webui.apps.webui.internal.db import Session, engine
-from open_webui.apps.webui.main import app as webui_app
+
+from open_webui.apps.retrieval.main import app as retrieval_app
+from open_webui.apps.retrieval.utils import get_rag_context, rag_template
+
+from open_webui.apps.socket.main import (
+    app as socket_app,
+    periodic_usage_pool_cleanup,
+    get_event_call,
+    get_event_emitter,
+)
+
+from fastapi_cache.backends.inmemory import InMemoryBackend
+
 from open_webui.apps.webui.main import (
+    app as webui_app,
     generate_function_chat_completion,
     get_pipe_models,
 )
+from open_webui.apps.webui.internal.db import Session, engine
+
 from open_webui.apps.webui.models.auths import Auths
 from open_webui.apps.webui.models.functions import Functions
 from open_webui.apps.webui.models.models import Models
 from open_webui.apps.webui.models.users import UserModel, Users
+
 from open_webui.apps.webui.utils import load_function_module_by_id
+
+from open_webui.apps.audio.main import app as audio_app
+from open_webui.apps.images.main import app as images_app
+
+from authlib.integrations.starlette_client import OAuth
+from authlib.oidc.core import UserInfo
+
+
 from open_webui.config import (
     CACHE_DIR,
     DEFAULT_LOCALE,
@@ -99,9 +98,29 @@ from open_webui.env import (
     WEBUI_SESSION_COOKIE_SAME_SITE,
     WEBUI_SESSION_COOKIE_SECURE,
     WEBUI_URL,
-    WEBUI_AUTH,
-    FRONTEND_BUILD_DIR,
+    RESET_CONFIG_ON_START, WEBUI_AUTH,
 )
+from fastapi import (
+    Depends,
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    UploadFile,
+    status,
+)
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
+from sqlalchemy import text
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.sessions import SessionMiddleware
+from starlette.responses import RedirectResponse, Response, StreamingResponse
+
+
 from open_webui.utils.misc import (
     add_or_update_system_message,
     get_last_user_message,
@@ -125,8 +144,12 @@ from open_webui.utils.utils import (
     get_verified_user,
 )
 from open_webui.utils.webhook import post_webhook
-from fastapi_cache.backends.inmemory import InMemoryBackend
-from fastapi_cache.decorator import cache
+
+from open_webui.utils.payload import convert_payload_openai_to_ollama
+from open_webui.utils.response import (
+    convert_response_ollama_to_openai,
+    convert_streaming_response_ollama_to_openai,
+)
 
 if SAFE_MODE:
     print("SAFE MODE ENABLED")
@@ -386,7 +409,9 @@ async def chat_completion_tools_handler(
 ) -> tuple[dict, dict]:
     # If tool_ids field is present, call the functions
     metadata = body.get("metadata", {})
+
     tool_ids = metadata.get("tool_ids", None)
+    log.debug(f"{tool_ids=}")
     if not tool_ids:
         return body, {}
 
@@ -395,23 +420,29 @@ async def chat_completion_tools_handler(
     citations = []
 
     task_model_id = get_task_model_id(body["model"])
-
-    log.debug(f"{tool_ids=}")
-
-    custom_params = {
-        **extra_params,
-        "__model__": app.state.MODELS[task_model_id],
-        "__messages__": body["messages"],
-        "__files__": metadata.get("files", []),
-    }
-    tools = await get_tools(webui_app, tool_ids, user, custom_params)
+    tools = get_tools(
+        webui_app,
+        tool_ids,
+        user,
+        {
+            **extra_params,
+            "__model__": app.state.MODELS[task_model_id],
+            "__messages__": body["messages"],
+            "__files__": metadata.get("files", []),
+        },
+    )
     log.info(f"{tools=}")
 
     specs = [tool["spec"] for tool in tools.values()]
     tools_specs = json.dumps(specs)
 
+    if app.state.config.TOOLS_FUNCTION_CALLING_PROMPT_TEMPLATE != "":
+        template = app.state.config.TOOLS_FUNCTION_CALLING_PROMPT_TEMPLATE
+    else:
+        template = """Available Tools: {{TOOLS}}\nReturn an empty string if no tools match the query. If a function tool matches, construct and return a JSON object in the format {\"name\": \"functionName\", \"parameters\": {\"requiredFunctionParamKey\": \"requiredFunctionParamValue\"}} using the appropriate tool and its parameters. Only return the object and limit the response to the JSON object without additional text."""
+
     tools_function_calling_prompt = tools_function_calling_generation_template(
-        app.state.config.TOOLS_FUNCTION_CALLING_PROMPT_TEMPLATE, tools_specs
+        template, tools_specs
     )
     log.info(f"{tools_function_calling_prompt=}")
     payload = get_tools_function_calling_payload(
@@ -432,37 +463,44 @@ async def chat_completion_tools_handler(
         if not content:
             return body, {}
 
-        result = json.loads(content)
-
-        tool_function_name = result.get("name", None)
-        if tool_function_name not in tools:
-            return body, {}
-
-        tool_function_params = result.get("parameters", {})
-
         try:
-            tool_output = await tools[tool_function_name]["callable"](
-                **tool_function_params
-            )
+            content = content[content.find("{") : content.rfind("}") + 1]
+            if not content:
+                raise Exception("No JSON object found in the response")
+
+            result = json.loads(content)
+
+            tool_function_name = result.get("name", None)
+            if tool_function_name not in tools:
+                return body, {}
+
+            tool_function_params = result.get("parameters", {})
+
+            try:
+                tool_output = await tools[tool_function_name]["callable"](
+                    **tool_function_params
+                )
+            except Exception as e:
+                tool_output = str(e)
+
+            if tools[tool_function_name]["citation"]:
+                citations.append(
+                    {
+                        "source": {
+                            "name": f"TOOL:{tools[tool_function_name]['toolkit_id']}/{tool_function_name}"
+                        },
+                        "document": [tool_output],
+                        "metadata": [{"source": tool_function_name}],
+                    }
+                )
+            if tools[tool_function_name]["file_handler"]:
+                skip_files = True
+
+            if isinstance(tool_output, str):
+                contexts.append(tool_output)
         except Exception as e:
-            tool_output = str(e)
-
-        if tools[tool_function_name]["citation"]:
-            citations.append(
-                {
-                    "source": {
-                        "name": f"TOOL:{tools[tool_function_name]['toolkit_id']}/{tool_function_name}"
-                    },
-                    "document": [tool_output],
-                    "metadata": [{"source": tool_function_name}],
-                }
-            )
-        if tools[tool_function_name]["file_handler"]:
-            skip_files = True
-
-        if isinstance(tool_output, str):
-            contexts.append(tool_output)
-
+            log.exception(f"Error: {e}")
+            content = None
     except Exception as e:
         log.exception(f"Error: {e}")
         content = None
@@ -483,11 +521,11 @@ async def chat_completion_files_handler(body) -> tuple[dict, dict[str, list]]:
         contexts, citations = get_rag_context(
             files=files,
             messages=body["messages"],
-            embedding_function=rag_app.state.EMBEDDING_FUNCTION,
-            k=rag_app.state.config.TOP_K,
-            reranking_function=rag_app.state.sentence_transformer_rf,
-            r=rag_app.state.config.RELEVANCE_THRESHOLD,
-            hybrid_search=rag_app.state.config.ENABLE_RAG_HYBRID_SEARCH,
+            embedding_function=retrieval_app.state.EMBEDDING_FUNCTION,
+            k=retrieval_app.state.config.TOP_K,
+            reranking_function=retrieval_app.state.sentence_transformer_rf,
+            r=retrieval_app.state.config.RELEVANCE_THRESHOLD,
+            hybrid_search=retrieval_app.state.config.ENABLE_RAG_HYBRID_SEARCH,
         )
 
         log.debug(f"rag_contexts: {contexts}, citations: {citations}")
@@ -598,19 +636,27 @@ class ChatCompletionMiddleware(BaseHTTPMiddleware):
             prompt = get_last_user_message(body["messages"])
             if prompt is None:
                 raise Exception("No user message found")
+            if (
+                retrieval_app.state.config.RELEVANCE_THRESHOLD == 0
+                and context_string.strip() == ""
+            ):
+                log.debug(
+                    f"With a 0 relevancy threshold for RAG, the context cannot be empty"
+                )
+
             # Workaround for Ollama 2.0+ system prompt issue
             # TODO: replace with add_or_update_system_message
             if model["owned_by"] == "ollama":
                 body["messages"] = prepend_to_first_user_message_content(
                     rag_template(
-                        rag_app.state.config.RAG_TEMPLATE, context_string, prompt
+                        retrieval_app.state.config.RAG_TEMPLATE, context_string, prompt
                     ),
                     body["messages"],
                 )
             else:
                 body["messages"] = add_or_update_system_message(
                     rag_template(
-                        rag_app.state.config.RAG_TEMPLATE, context_string, prompt
+                        retrieval_app.state.config.RAG_TEMPLATE, context_string, prompt
                     ),
                     body["messages"],
                 )
@@ -733,10 +779,8 @@ def filter_pipeline(payload, user):
 class PipelineMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         if not is_chat_completion_request(request):
-            response = await call_next(request)
-            if not response:
-                print("No response from", request.url)
-            return response
+            return await call_next(request)
+
         log.debug(f"request.url.path: {request.url.path}")
 
         # Read the original request body
@@ -746,10 +790,22 @@ class PipelineMiddleware(BaseHTTPMiddleware):
         # Parse string to JSON
         data = json.loads(body_str) if body_str else {}
 
-        user = await get_current_user(
-            request,
-            get_http_authorization_cred(request.headers["Authorization"]),
-        )
+        try:
+            user = await get_current_user(
+                request,
+                get_http_authorization_cred(request.headers["Authorization"]),
+            )
+        except KeyError as e:
+            if len(e.args) > 1:
+                return JSONResponse(
+                    status_code=e.args[0],
+                    content={"detail": e.args[1]},
+                )
+            else:
+                return JSONResponse(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    content={"detail": "Not authenticated"},
+                )
 
         try:
             data = filter_pipeline(data, user)
@@ -804,14 +860,7 @@ async def commit_session_after_request(request: Request, call_next):
 @app.middleware("http")
 async def check_url(request: Request, call_next):
     if len(app.state.MODELS) == 0:
-        if (
-            os.environ.get("TESTING") == "true"
-            or "pytest" in sys.modules
-            or "pytest" in sys.argv
-        ):
-            pass
-        else:
-            await get_all_models()
+        await get_all_models()
     else:
         pass
 
@@ -827,24 +876,40 @@ async def check_url(request: Request, call_next):
 async def update_embedding_function(request: Request, call_next):
     response = await call_next(request)
     if "/embedding/update" in request.url.path:
-        webui_app.state.EMBEDDING_FUNCTION = rag_app.state.EMBEDDING_FUNCTION
-    if not response:
-        print("No response from", request.url)
+        webui_app.state.EMBEDDING_FUNCTION = retrieval_app.state.EMBEDDING_FUNCTION
     return response
 
 
-app.mount("/ws", socket_app)
+@app.middleware("http")
+async def inspect_websocket(request: Request, call_next):
+    if (
+        "/ws/socket.io" in request.url.path
+        and request.query_params.get("transport") == "websocket"
+    ):
+        upgrade = (request.headers.get("Upgrade") or "").lower()
+        connection = (request.headers.get("Connection") or "").lower().split(",")
+        # Check that there's the correct headers for an upgrade, else reject the connection
+        # This is to work around this upstream issue: https://github.com/miguelgrinberg/python-engineio/issues/367
+        if upgrade != "websocket" or "upgrade" not in connection:
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={"detail": "Invalid WebSocket upgrade request"},
+            )
+    return await call_next(request)
 
+
+app.mount("/ws", socket_app)
 app.mount("/ollama", ollama_app)
 app.mount("/openai", openai_app)
 
 app.mount("/images/api/v1", images_app)
 app.mount("/audio/api/v1", audio_app)
-app.mount("/rag/api/v1", rag_app)
+app.mount("/retrieval/api/v1", retrieval_app)
 
 app.mount("/api/v1", webui_app)
 
-webui_app.state.EMBEDDING_FUNCTION = rag_app.state.EMBEDDING_FUNCTION
+
+webui_app.state.EMBEDDING_FUNCTION = retrieval_app.state.EMBEDDING_FUNCTION
 
 
 async def get_all_models():
@@ -1041,7 +1106,18 @@ async def generate_chat_completions(form_data: dict, user=Depends(get_verified_u
     if model.get("pipe"):
         return await generate_function_chat_completion(form_data, user=user)
     if model["owned_by"] == "ollama":
-        return await generate_ollama_chat_completion(form_data, user=user)
+        # Using /ollama/api/chat endpoint
+        form_data = convert_payload_openai_to_ollama(form_data)
+        form_data = GenerateChatCompletionForm(**form_data)
+        response = await generate_ollama_chat_completion(form_data=form_data, user=user)
+        if form_data.stream:
+            response.headers["content-type"] = "text/event-stream"
+            return StreamingResponse(
+                convert_streaming_response_ollama_to_openai(response),
+                headers=dict(response.headers),
+            )
+        else:
+            return convert_response_ollama_to_openai(response)
     else:
         return await generate_openai_chat_completion(form_data, user=user)
 
@@ -1388,13 +1464,6 @@ async def update_task_config(form_data: TaskConfigForm, user=Depends(get_admin_u
 async def generate_title(form_data: dict, user=Depends(get_verified_user)):
     print("generate_title")
 
-    account_detail = await UserMappings.get_user_mapping_by_email(user.email)
-    template = app.state.config.TITLE_GENERATION_PROMPT_TEMPLATE
-    if account_detail:
-        account_name = account_detail.account_name
-        template = (
-            f"The title must start with the dealership {account_name} name " + template
-        )
     model_id = form_data["model"]
     if model_id not in app.state.MODELS:
         raise HTTPException(
@@ -1404,9 +1473,25 @@ async def generate_title(form_data: dict, user=Depends(get_verified_user)):
 
     # Check if the user has a custom task model
     # If the user has a custom task model, use that model
-    model_id = get_task_model_id(model_id)
+    task_model_id = get_task_model_id(model_id)
+    print(task_model_id)
 
-    print(model_id)
+    model = app.state.MODELS[task_model_id]
+
+    if app.state.config.TITLE_GENERATION_PROMPT_TEMPLATE != "":
+        template = app.state.config.TITLE_GENERATION_PROMPT_TEMPLATE
+    else:
+        template = """Create a concise, 3-5 word title with an emoji as a title for the prompt in the given language. Suitable Emojis for the summary can be used to enhance understanding but avoid quotation marks or special formatting. RESPOND ONLY WITH THE TITLE TEXT.
+
+Examples of titles:
+📉 Stock Market Trends
+🍪 Perfect Chocolate Chip Recipe
+Evolution of Music Streaming
+Remote Work Productivity Tips
+Artificial Intelligence in Healthcare
+🎮 Video Game Development Insights
+
+Prompt: {{prompt:middletruncate:8000}}"""
 
     content = title_generation_template(
         template,
@@ -1418,16 +1503,22 @@ async def generate_title(form_data: dict, user=Depends(get_verified_user)):
     )
 
     payload = {
-        "model": model_id,
+        "model": task_model_id,
         "messages": [{"role": "user", "content": content}],
         "stream": False,
-        "max_tokens": 50,
+        **(
+            {"max_tokens": 50}
+            if app.state.MODELS[task_model_id]["owned_by"] == "ollama"
+            else {
+                "max_completion_tokens": 50,
+            }
+        ),
         "chat_id": form_data.get("chat_id", None),
-        "metadata": {"task": str(TASKS.TITLE_GENERATION)},
+        "metadata": {"task": str(TASKS.TITLE_GENERATION), "task_body": form_data},
     }
-
     log.debug(payload)
 
+    # Handle pipeline filters
     try:
         payload = filter_pipeline(payload, user)
     except Exception as e:
@@ -1441,7 +1532,6 @@ async def generate_title(form_data: dict, user=Depends(get_verified_user)):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 content={"detail": str(e)},
             )
-
     if "chat_id" in payload:
         del payload["chat_id"]
 
@@ -1466,26 +1556,46 @@ async def generate_search_query(form_data: dict, user=Depends(get_verified_user)
 
     # Check if the user has a custom task model
     # If the user has a custom task model, use that model
-    model_id = get_task_model_id(model_id)
+    task_model_id = get_task_model_id(model_id)
+    print(task_model_id)
 
-    print(model_id)
+    model = app.state.MODELS[task_model_id]
 
-    template = app.state.config.SEARCH_QUERY_GENERATION_PROMPT_TEMPLATE
+    if app.state.config.SEARCH_QUERY_GENERATION_PROMPT_TEMPLATE != "":
+        template = app.state.config.SEARCH_QUERY_GENERATION_PROMPT_TEMPLATE
+    else:
+        template = """Given the user's message and interaction history, decide if a web search is necessary. You must be concise and exclusively provide a search query if one is necessary. Refrain from verbose responses or any additional commentary. Prefer suggesting a search if uncertain to provide comprehensive or updated information. If a search isn't needed at all, respond with an empty string. Default to a search query when in doubt. Today's date is {{CURRENT_DATE}}.
+
+User Message:
+{{prompt:end:4000}}
+
+Interaction History:
+{{MESSAGES:END:6}}
+
+Search Query:"""
 
     content = search_query_generation_template(
-        template, form_data["prompt"], {"name": user.name}
+        template, form_data["messages"], {"name": user.name}
     )
 
+    print("content", content)
+
     payload = {
-        "model": model_id,
+        "model": task_model_id,
         "messages": [{"role": "user", "content": content}],
         "stream": False,
-        "max_tokens": 30,
-        "metadata": {"task": str(TASKS.QUERY_GENERATION)},
+        **(
+            {"max_tokens": 30}
+            if app.state.MODELS[task_model_id]["owned_by"] == "ollama"
+            else {
+                "max_completion_tokens": 30,
+            }
+        ),
+        "metadata": {"task": str(TASKS.QUERY_GENERATION), "task_body": form_data},
     }
+    log.debug(payload)
 
-    print(payload)
-
+    # Handle pipeline filters
     try:
         payload = filter_pipeline(payload, user)
     except Exception as e:
@@ -1519,9 +1629,10 @@ async def generate_emoji(form_data: dict, user=Depends(get_verified_user)):
 
     # Check if the user has a custom task model
     # If the user has a custom task model, use that model
-    model_id = get_task_model_id(model_id)
+    task_model_id = get_task_model_id(model_id)
+    print(task_model_id)
 
-    print(model_id)
+    model = app.state.MODELS[task_model_id]
 
     template = '''
 Your task is to reflect the speaker's likely facial expression through a fitting emoji. Interpret emotions from the message and reflect their facial expression using fitting, diverse emojis (e.g., 😊, 😢, 😡, 😱).
@@ -1539,16 +1650,22 @@ Message: """{{prompt}}"""
     )
 
     payload = {
-        "model": model_id,
+        "model": task_model_id,
         "messages": [{"role": "user", "content": content}],
         "stream": False,
-        "max_tokens": 4,
+        **(
+            {"max_tokens": 4}
+            if app.state.MODELS[task_model_id]["owned_by"] == "ollama"
+            else {
+                "max_completion_tokens": 4,
+            }
+        ),
         "chat_id": form_data.get("chat_id", None),
-        "metadata": {"task": str(TASKS.EMOJI_GENERATION)},
+        "metadata": {"task": str(TASKS.EMOJI_GENERATION), "task_body": form_data},
     }
-
     log.debug(payload)
 
+    # Handle pipeline filters
     try:
         payload = filter_pipeline(payload, user)
     except Exception as e:
@@ -1562,7 +1679,6 @@ Message: """{{prompt}}"""
                 status_code=status.HTTP_400_BAD_REQUEST,
                 content={"detail": str(e)},
             )
-
     if "chat_id" in payload:
         del payload["chat_id"]
 
@@ -1582,8 +1698,10 @@ async def generate_moa_response(form_data: dict, user=Depends(get_verified_user)
 
     # Check if the user has a custom task model
     # If the user has a custom task model, use that model
-    model_id = get_task_model_id(model_id)
-    print(model_id)
+    task_model_id = get_task_model_id(model_id)
+    print(task_model_id)
+
+    model = app.state.MODELS[task_model_id]
 
     template = """You have been provided with a set of responses from various models to the latest user query: "{{prompt}}"
 
@@ -1598,13 +1716,15 @@ Responses from models: {{responses}}"""
     )
 
     payload = {
-        "model": model_id,
+        "model": task_model_id,
         "messages": [{"role": "user", "content": content}],
         "stream": form_data.get("stream", False),
         "chat_id": form_data.get("chat_id", None),
-        "metadata": {"task": str(TASKS.MOA_RESPONSE_GENERATION)},
+        "metadata": {
+            "task": str(TASKS.MOA_RESPONSE_GENERATION),
+            "task_body": form_data,
+        },
     }
-
     log.debug(payload)
 
     try:
@@ -1985,10 +2105,10 @@ async def get_app_config(request: Request):
             "auth": WEBUI_AUTH,
             "auth_trusted_header": bool(webui_app.state.AUTH_TRUSTED_EMAIL_HEADER),
             "enable_signup": webui_app.state.config.ENABLE_SIGNUP,
-            "enable_login_form": True,
+            "enable_login_form": webui_app.state.config.ENABLE_LOGIN_FORM,
             **(
                 {
-                    "enable_web_search": rag_app.state.config.ENABLE_RAG_WEB_SEARCH,
+                    "enable_web_search": retrieval_app.state.config.ENABLE_RAG_WEB_SEARCH,
                     "enable_image_generation": images_app.state.config.ENABLED,
                     "enable_community_sharing": webui_app.state.config.ENABLE_COMMUNITY_SHARING,
                     "enable_message_rating": webui_app.state.config.ENABLE_MESSAGE_RATING,
@@ -2014,8 +2134,8 @@ async def get_app_config(request: Request):
                     },
                 },
                 "file": {
-                    "max_size": rag_app.state.config.FILE_MAX_SIZE,
-                    "max_count": rag_app.state.config.FILE_MAX_COUNT,
+                    "max_size": retrieval_app.state.config.FILE_MAX_SIZE,
+                    "max_count": retrieval_app.state.config.FILE_MAX_COUNT,
                 },
                 "permissions": {**webui_app.state.config.USER_PERMISSIONS},
             }
@@ -2082,25 +2202,6 @@ async def get_app_version():
 @app.get("/api/changelog")
 async def get_app_changelog():
     return {key: CHANGELOG[key] for idx, key in enumerate(CHANGELOG) if idx < 5}
-
-
-@app.get("/api/version/updates")
-async def get_app_latest_release_version():
-    try:
-        async with aiohttp.ClientSession(trust_env=True) as session:
-            async with session.get(
-                "https://api.github.com/repos/open-webui/open-webui/releases/latest"
-            ) as response:
-                response.raise_for_status()
-                data = await response.json()
-                latest_version = data["tag_name"]
-
-                return {"current": VERSION, "latest": latest_version[1:]}
-    except aiohttp.ClientError:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=ERROR_MESSAGES.RATE_LIMIT_EXCEEDED,
-        )
 
 
 ############################
@@ -2274,7 +2375,7 @@ async def get_manifest_json():
         "start_url": "/",
         "display": "standalone",
         "background_color": "#343541",
-        "orientation": "portrait-primary",
+        "orientation": "any",
         "icons": [
             {
                 "src": "/static/logo.png",
@@ -2320,15 +2421,3 @@ async def healthcheck_with_db():
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.mount("/cache", StaticFiles(directory=CACHE_DIR), name="cache")
-
-if os.path.exists(FRONTEND_BUILD_DIR):
-    mimetypes.add_type("text/javascript", ".js")
-    app.mount(
-        "/",
-        SPAStaticFiles(directory=FRONTEND_BUILD_DIR, html=True),
-        name="spa-static-files",
-    )
-else:
-    log.warning(
-        f"Frontend build directory not found at '{FRONTEND_BUILD_DIR}'. Serving API only."
-    )

@@ -161,7 +161,7 @@ class DocumentsTable:
                 .values(
                     title=form_data.title,
                     name=form_data.name,
-                    timestamp=int(time.time),
+                    timestamp=int(time.time()),
                 )
             )
 

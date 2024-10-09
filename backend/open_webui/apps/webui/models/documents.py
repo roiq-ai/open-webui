@@ -16,9 +16,7 @@ from sqlalchemy import (
     update,
     or_,
     text,
-    Integer,
 )
-from sqlalchemy.dialects.postgresql.json import JSONB
 
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["MODELS"])

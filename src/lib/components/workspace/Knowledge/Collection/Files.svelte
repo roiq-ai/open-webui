@@ -17,12 +17,13 @@
 					? ' bg-gray-50 dark:bg-gray-850'
 					: 'bg-transparent'} hover:bg-gray-50 dark:hover:bg-gray-850 transition"
 				{file}
-				name={file?.name ?? file?.meta?.name}
+				name={file?.filename ?? file?.meta?.name}
 				type="file"
 				size={file?.size ?? file?.meta?.size ?? ''}
 				loading={file.status === 'uploading'}
 				dismissible
 				on:click={() => {
+					console.log(file);
 					dispatch('click', file.id);
 				}}
 				on:dismiss={() => {

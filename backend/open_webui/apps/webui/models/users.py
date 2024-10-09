@@ -17,7 +17,6 @@ from sqlalchemy import (
     and_,
 )
 import sqlalchemy.sql.functions as func
-from sqlalchemy.types import Date
 
 ####################
 # User DB Schema

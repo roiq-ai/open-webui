@@ -132,7 +132,7 @@
 			const uploadedFile = await uploadFile(localStorage.token, file).catch((e) => {
 				toast.error(e);
 			});
-
+			console.log('Uploaded file: ', uploadedFile);
 			if (uploadedFile) {
 				console.log(uploadedFile);
 				await addFileHandler(uploadedFile.id);
@@ -652,6 +652,7 @@
 										files={filteredItems}
 										{selectedFileId}
 										on:click={(e) => {
+											console.log(e);
 											selectedFileId = e.detail;
 										}}
 										on:delete={(e) => {
@@ -673,9 +674,15 @@
 					<div class="flex-1 flex justify-start max-h-full overflow-hidden pl-3">
 						{#if selectedFile}
 							<div class=" flex flex-col w-full h-full">
-								<div class=" flex-shrink-0 mb-2 flex items-center">
-									<div class=" flex-1 text-xl line-clamp-1">
-										{selectedFile?.meta?.name}
+								<div
+									class=" flex-shrink-0 mb-2 flex items-center"
+									style="width: 100%; overflow-wrap: normal; height: fit-content; white-space: normal"
+								>
+									<div
+										class=" flex-1 text-xl line-clamp-1"
+										style="width: 100%; overflow-wrap: normal; height: fit-content; white-space: normal"
+									>
+										{selectedFile.filename}
 									</div>
 
 									<div>

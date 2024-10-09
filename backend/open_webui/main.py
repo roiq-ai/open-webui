@@ -9,7 +9,6 @@ import sys
 import time
 import traceback
 import uuid
-import asyncio
 
 from contextlib import asynccontextmanager
 from typing import Optional
@@ -21,7 +20,6 @@ from open_webui.apps.ollama.main import (
     app as ollama_app,
     get_all_models as get_ollama_models,
     generate_chat_completion as generate_ollama_chat_completion,
-    generate_openai_chat_completion as generate_ollama_openai_chat_completion,
     GenerateChatCompletionForm,
 )
 from open_webui.apps.openai.main import (
@@ -35,7 +33,6 @@ from open_webui.apps.retrieval.utils import get_rag_context, rag_template
 
 from open_webui.apps.socket.main import (
     app as socket_app,
-    periodic_usage_pool_cleanup,
     get_event_call,
     get_event_emitter,
 )
@@ -98,7 +95,7 @@ from open_webui.env import (
     WEBUI_SESSION_COOKIE_SAME_SITE,
     WEBUI_SESSION_COOKIE_SECURE,
     WEBUI_URL,
-    RESET_CONFIG_ON_START, WEBUI_AUTH,
+    WEBUI_AUTH,
 )
 from fastapi import (
     Depends,
@@ -1476,7 +1473,7 @@ async def generate_title(form_data: dict, user=Depends(get_verified_user)):
     task_model_id = get_task_model_id(model_id)
     print(task_model_id)
 
-    model = app.state.MODELS[task_model_id]
+    app.state.MODELS[task_model_id]
 
     if app.state.config.TITLE_GENERATION_PROMPT_TEMPLATE != "":
         template = app.state.config.TITLE_GENERATION_PROMPT_TEMPLATE
@@ -1559,7 +1556,7 @@ async def generate_search_query(form_data: dict, user=Depends(get_verified_user)
     task_model_id = get_task_model_id(model_id)
     print(task_model_id)
 
-    model = app.state.MODELS[task_model_id]
+    app.state.MODELS[task_model_id]
 
     if app.state.config.SEARCH_QUERY_GENERATION_PROMPT_TEMPLATE != "":
         template = app.state.config.SEARCH_QUERY_GENERATION_PROMPT_TEMPLATE
@@ -1632,7 +1629,7 @@ async def generate_emoji(form_data: dict, user=Depends(get_verified_user)):
     task_model_id = get_task_model_id(model_id)
     print(task_model_id)
 
-    model = app.state.MODELS[task_model_id]
+    app.state.MODELS[task_model_id]
 
     template = '''
 Your task is to reflect the speaker's likely facial expression through a fitting emoji. Interpret emotions from the message and reflect their facial expression using fitting, diverse emojis (e.g., 😊, 😢, 😡, 😱).
@@ -1701,7 +1698,7 @@ async def generate_moa_response(form_data: dict, user=Depends(get_verified_user)
     task_model_id = get_task_model_id(model_id)
     print(task_model_id)
 
-    model = app.state.MODELS[task_model_id]
+    app.state.MODELS[task_model_id]
 
     template = """You have been provided with a set of responses from various models to the latest user query: "{{prompt}}"
 

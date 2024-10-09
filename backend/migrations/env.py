@@ -6,13 +6,14 @@ from pathlib import Path
 
 sys.path.append(Path(os.path.dirname(__file__)).parent.parent.__str__())
 from alembic import context
-from open_webui.apps.webui.internal.db import Base, engine, DATABASE_URL
+from open_webui.apps.webui.internal.db import Base, engine
 from sqlalchemy.engine import Connection
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
-
+print(engine.url)
+print(os.environ)
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
 if config.config_file_name is not None:
@@ -44,7 +45,7 @@ def run_migrations_offline() -> None:
     """
 
     context.configure(
-        url=DATABASE_URL,
+        connection=engine.connect(),
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},

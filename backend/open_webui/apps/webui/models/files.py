@@ -11,11 +11,6 @@ log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["MODELS"])
 
 
-####################
-# Files DB Schema
-####################
-
-
 class File(Base):
     __tablename__ = "file"
 
@@ -74,7 +69,7 @@ class FileForm(BaseModel):
 
 class FilesTable:
     async def insert_new_file(
-            self, user_id: str, form_data: FileForm
+        self, user_id: str, form_data: FileForm
     ) -> Optional[FileModel]:
         async with get_db() as db:
             file = FileModel(
@@ -82,6 +77,7 @@ class FilesTable:
                     **form_data.model_dump(),
                     "user_id": user_id,
                     "created_at": int(time.time()),
+                    "updated_at": int(time.time()),
                 }
             )
             result = File(**file.model_dump())
@@ -126,10 +122,7 @@ class FilesTable:
         async with get_db() as db:
             stmt = select(File).where(File.user_id == user_id)
             res = await db.execute(stmt)
-            return [
-                FileModel.model_validate(file)
-                for file in res.scalars().all()
-            ]
+            return [FileModel.model_validate(file) for file in res.scalars().all()]
 
     async def update_file_hash_by_id(self, id: str, hash: str) -> Optional[FileModel]:
         async with get_db() as db:
@@ -147,7 +140,9 @@ class FilesTable:
             file = await db.get(File, id)
             return FileModel.model_validate(file)
 
-    async def update_file_metadata_by_id(self, id: str, meta: dict) -> Optional[FileModel]:
+    async def update_file_metadata_by_id(
+        self, id: str, meta: dict
+    ) -> Optional[FileModel]:
         async with get_db() as db:
             stmt = update(File).where(File.id == id).values(meta=meta)
             await db.execute(stmt)

@@ -15,7 +15,9 @@ bump-version:
 	$(RYE) version -b minor
 
 format:
-	$(RYE) format
+	$(RYE) run  black .
+	$(RYE) run autoflake . --recursive --remove-unused-variables --in-place \
+	--ignore-init-module-imports --remove-all-unused-imports --exclude ".venv/|/venv/"
 
 .PHONY: login
 login:

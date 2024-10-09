@@ -1,4 +1,3 @@
-import json
 import logging
 import time
 from typing import Optional
@@ -7,7 +6,15 @@ import uuid
 from open_webui.apps.webui.internal.db import Base, get_db
 from open_webui.env import SRC_LOG_LEVELS
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import BigInteger, Column, String, Text, JSON, select, insert, delete, update
+from sqlalchemy import (
+    BigInteger,
+    Column,
+    Text,
+    JSON,
+    select,
+    delete,
+    update,
+)
 
 
 log = logging.getLogger(__name__)
@@ -79,7 +86,7 @@ class KnowledgeUpdateForm(BaseModel):
 
 class KnowledgeTable:
     async def insert_new_knowledge(
-            self, user_id: str, form_data: KnowledgeForm
+        self, user_id: str, form_data: KnowledgeForm
     ) -> Optional[KnowledgeModel]:
         async with get_db() as db:
             knowledge = KnowledgeModel(
@@ -117,29 +124,22 @@ class KnowledgeTable:
             return KnowledgeModel.model_validate(res) if res else None
 
     async def update_knowledge_by_id(
-            self, id: str, form_data: KnowledgeUpdateForm, overwrite: bool = False
+        self, id: str, form_data: KnowledgeUpdateForm, overwrite: bool = False
     ) -> Optional[KnowledgeModel]:
         try:
             async with get_db() as db:
-                stmt = update(
-                    Knowledge
-                ).where(
-                    Knowledge.id == id
-                ).values(
-                    {
-                        **form_data.model_dump(exclude_none=True),
-                        "updated_at": int(time.time()),
-                    }
+                stmt = (
+                    update(Knowledge)
+                    .where(Knowledge.id == id)
+                    .values(
+                        {
+                            **form_data.model_dump(exclude_none=True),
+                            "updated_at": int(time.time()),
+                        }
+                    )
                 )
                 await db.execute(stmt)
                 await db.commit()
-                db.query(Knowledge).filter_by(id=id).update(
-                    {
-                        **form_data.model_dump(exclude_none=True),
-                        "updated_at": int(time.time()),
-                    }
-                )
-                db.commit()
                 return await self.get_knowledge_by_id(id=id)
         except Exception as e:
             log.exception(e)
@@ -148,11 +148,7 @@ class KnowledgeTable:
     async def delete_knowledge_by_id(self, id: str) -> bool:
         try:
             async with get_db() as db:
-                query = delete(
-                    Knowledge
-                ).where(
-                    Knowledge.id == id
-                )
+                query = delete(Knowledge).where(Knowledge.id == id)
                 await db.execute(query)
                 await db.commit()
                 return True

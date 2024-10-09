@@ -151,7 +151,7 @@ async def user_join(sid, data):
     if data is None or "id" not in data:
         return
 
-    user = Users.get_user_by_id(data["id"])
+    user = await Users.get_user_by_id(data["id"])
     if not user:
         return
 

@@ -4,7 +4,7 @@ import time
 import uuid
 from datetime import timedelta
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Optional
 
 
 def get_messages_content(messages: list[dict]) -> str:

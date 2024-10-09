@@ -23,7 +23,6 @@ from open_webui.apps.webui.routers import (
 from open_webui.apps.webui.utils import load_function_module_by_id
 from open_webui.config import (
     ADMIN_EMAIL,
-    CORS_ALLOW_ORIGIN,
     DEFAULT_MODELS,
     DEFAULT_PROMPT_SUGGESTIONS,
     DEFAULT_USER_ROLE,

@@ -1,11 +1,9 @@
 import asyncio
 import json
-import logging
 import os
 from contextlib import asynccontextmanager
 from typing import Any, Optional
 
-from open_webui.env import DATA_DIR
 from sqlalchemy import Dialect, types
 from sqlalchemy.ext.asyncio import (
     async_scoped_session,
@@ -23,13 +21,12 @@ from sqlalchemy.pool import NullPool
 ####################################
 
 DATABASE_URL = os.environ.get(
-    "DATABASE_URL", f"postgresql+asyncpg://postgres:postgres@localhost:5432/owebui"
+    "DATABASE_URL", f"postgresql+asyncpg://postgres:postgres@localhost/owebui"
 )
 
 # Replace the postgres:// with postgresql://
 if "postgres://" in DATABASE_URL:
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://")
-
 
 
 class JSONField(types.TypeDecorator):

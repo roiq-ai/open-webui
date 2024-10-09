@@ -23,7 +23,6 @@ from open_webui.apps.webui.models.tags import (
 )
 from open_webui.utils.utils import get_admin_user, get_verified_user
 from pydantic import BaseModel
-from fastapi_cache.decorator import cache
 
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["MODELS"])
@@ -58,10 +57,9 @@ async def get_session_user_chat_list(
 
 @router.delete("/", response_model=bool)
 async def delete_all_user_chats(request: Request, user=Depends(get_verified_user)):
-    if (
-        user.role == "user"
-        and not request.app.state.config.USER_PERMISSIONS["chat"]["deletion"]
-    ):
+    if user.role == "user" and not request.app.state.config.USER_PERMISSIONS.get(
+        "chat", {}
+    ).get("deletion", {}):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=ERROR_MESSAGES.ACCESS_PROHIBITED,
@@ -259,7 +257,6 @@ async def get_all_tags(user=Depends(get_verified_user)):
 
 
 @router.get("/{id}", response_model=Optional[ChatResponse])
-@cache(60)
 async def get_chat_by_id(id: str, user=Depends(get_verified_user)):
     chat = await Chats.get_chat_by_id_and_user_id(id, user.id)
 

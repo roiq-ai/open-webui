@@ -15,8 +15,7 @@ from open_webui.apps.ollama.main import (
     GenerateEmbeddingsForm,
     generate_ollama_embeddings,
 )
-
-from open_webui.config import CHROMA_CLIENT
+from open_webui.apps.retrieval.vector.connector import VECTOR_DB_CLIENT
 from open_webui.utils.misc import get_last_user_message
 
 from open_webui.env import SRC_LOG_LEVELS
@@ -70,7 +69,7 @@ def query_doc(
     k: int,
 ):
     try:
-        result = CHROMA_CLIENT.q(
+        result = VECTOR_DB_CLIENT.search(
             collection_name=collection_name,
             vectors=[query_embedding],
             limit=k,
@@ -182,7 +181,6 @@ def query_collection(
     embedding_function,
     k: int,
 ) -> dict:
-
     results = []
     query_embedding = embedding_function(query)
 
@@ -239,7 +237,7 @@ def query_collection_with_hybrid_search(
 
 
 def rag_template(template: str, context: str, query: str):
-    count = template.count("[context]")
+    template.count("[context]")
     assert "[context]" in template, "RAG template does not contain '[context]'"
 
     if "<context>" in context and "</context>" in context:
@@ -361,7 +359,7 @@ def get_rag_context(
                                 reranking_function=reranking_function,
                                 r=r,
                             )
-                        except Exception as e:
+                        except Exception:
                             log.debug(
                                 "Error when using hybrid search, using"
                                 " non hybrid search as fallback."

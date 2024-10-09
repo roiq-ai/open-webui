@@ -1,9 +1,9 @@
-import json
 from typing import Optional, Union
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, status
 import logging
 
+from open_webui.apps.retrieval.vector.connector import VECTOR_DB_CLIENT
 from open_webui.apps.retrieval.main import process_file, ProcessFileForm
 from open_webui.config import CHROMA_CLIENT
 from open_webui.apps.webui.models.knowledge import (
@@ -133,7 +133,7 @@ async def update_knowledge_by_id(
 
 
 class KnowledgeFileIdForm(BaseModel):
-    file_id: str
+    file_id: Optional[str]
 
 
 @router.post("/{id}/file/add", response_model=Optional[KnowledgeFilesResponse])
@@ -157,7 +157,9 @@ async def add_file_to_knowledge_by_id(
 
     # Add content to the vector database
     try:
-        await process_file(ProcessFileForm(file_id=form_data.file_id, collection_name=id))
+        await process_file(
+            ProcessFileForm(file_id=form_data.file_id, collection_name=id)
+        )
     except Exception as e:
         log.debug(e)
         raise HTTPException(
@@ -216,13 +218,15 @@ async def update_file_from_knowledge_by_id(
         )
 
     # Remove content from the vector database
-    CHROMA_CLIENT.delete(
+    VECTOR_DB_CLIENT.delete(
         collection_name=knowledge.id, filter={"file_id": form_data.file_id}
     )
 
     # Add content to the vector database
     try:
-        await process_file(ProcessFileForm(file_id=form_data.file_id, collection_name=id))
+        await process_file(
+            ProcessFileForm(file_id=form_data.file_id, collection_name=id)
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -257,7 +261,10 @@ async def remove_file_from_knowledge_by_id(
     form_data: KnowledgeFileIdForm,
     user=Depends(get_admin_user),
 ):
+    if form_data.file_id is None:
+        return None
     knowledge = await Knowledges.get_knowledge_by_id(id=id)
+
     file = await Files.get_file_by_id(form_data.file_id)
     if not file:
         raise HTTPException(
@@ -266,11 +273,11 @@ async def remove_file_from_knowledge_by_id(
         )
 
     # Remove content from the vector database
-    CHROMA_CLIENT.delete(
+    VECTOR_DB_CLIENT.delete(
         collection_name=knowledge.id, filter={"file_id": form_data.file_id}
     )
 
-    result = CHROMA_CLIENT.query(
+    result = VECTOR_DB_CLIENT.query(
         collection_name=knowledge.id,
         filter={"file_id": form_data.file_id},
     )
@@ -324,7 +331,6 @@ async def reset_knowledge_by_id(id: str, user=Depends(get_admin_user)):
         CHROMA_CLIENT.delete_collection(collection_name=id)
     except Exception as e:
         log.debug(e)
-        pass
 
     knowledge = await Knowledges.update_knowledge_by_id(
         id=id, form_data=KnowledgeUpdateForm(data={"file_ids": []})
@@ -343,6 +349,5 @@ async def delete_knowledge_by_id(id: str, user=Depends(get_admin_user)):
         CHROMA_CLIENT.delete_collection(collection_name=id)
     except Exception as e:
         log.debug(e)
-        pass
     result = await Knowledges.delete_knowledge_by_id(id=id)
     return result

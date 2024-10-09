@@ -7,9 +7,9 @@ import pytest
 from docker import DockerClient
 from fastapi.testclient import TestClient
 from pytest_docker.plugin import get_docker_ip
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
-from httpx import AsyncClient, ASGITransport
+from httpx import AsyncClient
 
 log = logging.getLogger(__name__)
 

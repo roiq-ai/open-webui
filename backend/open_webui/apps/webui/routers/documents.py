@@ -2,7 +2,6 @@ import json
 from typing import List, Optional
 
 from open_webui.apps.webui.models.user_mapping import UserMappings
-from open_webui.apps.webui.models.users import Users
 from open_webui.constants import ERROR_MESSAGES
 from fastapi import APIRouter, Depends, HTTPException, status
 from open_webui.apps.webui.models.documents import (

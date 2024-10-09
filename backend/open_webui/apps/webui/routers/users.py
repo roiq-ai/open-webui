@@ -1,5 +1,4 @@
 import logging
-from datetime import date
 from typing import List, Optional
 
 from open_webui.config import SRC_LOG_LEVELS

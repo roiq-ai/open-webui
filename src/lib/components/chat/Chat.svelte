@@ -242,7 +242,7 @@
 
 			if (prompt !== '') {
 				await tick();
-				submitPrompt(prompt);
+				await submitPrompt(prompt);
 			}
 		}
 
@@ -251,7 +251,7 @@
 
 			if (prompt !== '') {
 				await tick();
-				submitPrompt(event.data.text);
+				await submitPrompt(event.data.text);
 			}
 		}
 	};
@@ -371,7 +371,7 @@
 
 			if (prompt) {
 				await tick();
-				submitPrompt(prompt);
+				await submitPrompt(prompt);
 			}
 		}
 

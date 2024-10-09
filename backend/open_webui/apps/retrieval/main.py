@@ -1,20 +1,19 @@
 # TODO: Merge this with the webui_app and make it a single app
 
-import json
 import logging
-import mimetypes
 import os
 import shutil
+import traceback
 
 import uuid
 from datetime import datetime
-from pathlib import Path
-from typing import Iterator, Optional, Sequence, Union
+from typing import Optional
 
-from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, status
+from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from open_webui.apps.retrieval.vector.connector import VECTOR_DB_CLIENT
 
 # Document loaders
 from open_webui.apps.retrieval.loaders.main import Loader
@@ -51,7 +50,6 @@ from open_webui.config import (
     CONTENT_EXTRACTION_ENGINE,
     CORS_ALLOW_ORIGIN,
     ENABLE_RAG_HYBRID_SEARCH,
-    ENABLE_RAG_LOCAL_WEB_FETCH,
     ENABLE_RAG_WEB_LOADER_SSL_VERIFICATION,
     ENABLE_RAG_WEB_SEARCH,
     ENV,
@@ -89,15 +87,12 @@ from open_webui.config import (
     TIKA_SERVER_URL,
     UPLOAD_DIR,
     YOUTUBE_LOADER_LANGUAGE,
-    AppConfig, CHROMA_CLIENT,
+    AppConfig,
 )
 from open_webui.constants import ERROR_MESSAGES
 from open_webui.env import SRC_LOG_LEVELS, DEVICE_TYPE, DOCKER
 from open_webui.utils.misc import (
-    calculate_sha256,
     calculate_sha256_string,
-    extract_folders_after_data_docs,
-    sanitize_filename,
 )
 from open_webui.utils.utils import get_admin_user, get_verified_user
 
@@ -639,7 +634,7 @@ def save_docs_to_vector_db(
 
     # Check if entries with the same hash (metadata.hash) already exist
     if metadata and "hash" in metadata:
-        result = CHROMA_CLIENT.query(
+        result = VECTOR_DB_CLIENT.query(
             collection_name=collection_name,
             filter={"hash": metadata["hash"]},
         )
@@ -648,7 +643,9 @@ def save_docs_to_vector_db(
             existing_doc_ids = result.ids[0]
             if existing_doc_ids:
                 log.info(f"Document with hash {metadata['hash']} already exists")
-                raise ValueError(ERROR_MESSAGES.DUPLICATE_CONTENT)
+                VECTOR_DB_CLIENT.delete(
+                    collection_name=collection_name, ids=existing_doc_ids
+                )
 
     if split:
         text_splitter = RecursiveCharacterTextSplitter(
@@ -672,11 +669,11 @@ def save_docs_to_vector_db(
                 metadata[key] = str(value)
 
     try:
-        if CHROMA_CLIENT.has_collection(collection_name=collection_name):
+        if VECTOR_DB_CLIENT.has_collection(collection_name=collection_name):
             log.info(f"collection {collection_name} already exists")
 
             if overwrite:
-                CHROMA_CLIENT.delete_collection(collection_name=collection_name)
+                VECTOR_DB_CLIENT.delete_collection(collection_name=collection_name)
                 log.info(f"deleting existing collection {collection_name}")
 
             if add is False:
@@ -706,7 +703,7 @@ def save_docs_to_vector_db(
             for idx, text in enumerate(texts)
         ]
 
-        CHROMA_CLIENT.insert(
+        VECTOR_DB_CLIENT.insert(
             collection_name=collection_name,
             items=items,
         )
@@ -740,7 +737,7 @@ async def process_file(
             # Update the content in the file
             # Usage: /files/{file_id}/data/content/update
 
-            CHROMA_CLIENT.delete(
+            VECTOR_DB_CLIENT.delete(
                 collection_name=f"file-{file.id}",
                 filter={"file_id": file.id},
             )
@@ -762,7 +759,7 @@ async def process_file(
             # Check if the file has already been processed and save the content
             # Usage: /knowledge/{id}/file/add, /knowledge/{id}/file/update
 
-            result = CHROMA_CLIENT.query(
+            result = VECTOR_DB_CLIENT.query(
                 collection_name=f"file-{file.id}", filter={"file_id": file.id}
             )
 
@@ -825,7 +822,7 @@ async def process_file(
         )
 
         hash = calculate_sha256_string(text_content)
-        Files.update_file_hash_by_id(file.id, hash)
+        await Files.update_file_hash_by_id(file.id, hash)
 
         try:
             result = save_docs_to_vector_db(
@@ -854,8 +851,10 @@ async def process_file(
                     "content": text_content,
                 }
         except Exception as e:
+            print(traceback.print_exc())
             raise e
     except Exception as e:
+        print(traceback.print_exc())
         log.exception(e)
         if "No pandoc was found" in str(e):
             raise HTTPException(
@@ -1237,13 +1236,15 @@ class DeleteForm(BaseModel):
 
 
 @app.post("/delete")
-def delete_entries_from_collection(form_data: DeleteForm, user=Depends(get_admin_user)):
+async def delete_entries_from_collection(
+    form_data: DeleteForm, user=Depends(get_admin_user)
+):
     try:
-        if CHROMA_CLIENT.has_collection(collection_name=form_data.collection_name):
-            file = Files.get_file_by_id(form_data.file_id)
+        if VECTOR_DB_CLIENT.has_collection(collection_name=form_data.collection_name):
+            file = await Files.get_file_by_id(form_data.file_id)
             hash = file.hash
 
-            CHROMA_CLIENT.delete(
+            VECTOR_DB_CLIENT.delete(
                 collection_name=form_data.collection_name,
                 metadata={"hash": hash},
             )
@@ -1257,7 +1258,7 @@ def delete_entries_from_collection(form_data: DeleteForm, user=Depends(get_admin
 
 @app.post("/reset/db")
 def reset_vector_db(user=Depends(get_admin_user)):
-    CHROMA_CLIENT.reset()
+    VECTOR_DB_CLIENT.reset()
 
 
 @app.post("/reset/uploads")
@@ -1298,7 +1299,7 @@ def reset(user=Depends(get_admin_user)) -> bool:
             log.error("Failed to delete %s. Reason: %s" % (file_path, e))
 
     try:
-        CHROMA_CLIENT.reset()
+        VECTOR_DB_CLIENT.reset()
     except Exception as e:
         log.exception(e)
 

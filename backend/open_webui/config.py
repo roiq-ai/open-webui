@@ -9,29 +9,25 @@ from typing import Generic, Optional, TypeVar
 from urllib.parse import urlparse
 
 import chromadb
-import requests
 import yaml
 import markdown
 from bs4 import BeautifulSoup
 from pydantic import BaseModel
 from chromadb import Settings
-from open_webui.apps.webui.internal.db import Base, get_db
 from open_webui.env import (
-    OPEN_WEBUI_DIR,
     DATA_DIR,
     ENV,
-    FRONTEND_BUILD_DIR,
     WEBUI_AUTH,
     WEBUI_NAME,
     log,
     BASE_DIR,
-    BACKEND_DIR,
 )
 
 ####################################
 # Load .env file
 ####################################
 
+SRC_LOG_LEVELS = "INFO"
 
 try:
     from dotenv import find_dotenv, load_dotenv

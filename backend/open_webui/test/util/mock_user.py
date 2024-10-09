@@ -1,4 +1,4 @@
-from contextlib import contextmanager, asynccontextmanager
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient

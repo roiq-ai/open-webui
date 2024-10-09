@@ -27,7 +27,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 from starlette.background import BackgroundTask
-from fastapi_cache.decorator import cache
 
 
 from open_webui.utils.payload import (
@@ -404,20 +403,21 @@ async def generate_chat_completion(
     streaming = False
 
     try:
-        async with httpx.AsyncClient(trust_env=True) as session:
-            r = await session.post(
-                url=f"{url}/chat/completions",
-                json=payload,
-                headers=headers,
-            )
-
-            r.raise_for_status()
+        session = aiohttp.ClientSession(
+            trust_env=True, timeout=aiohttp.ClientTimeout(total=AIOHTTP_CLIENT_TIMEOUT)
+        )
+        r = await session.request(
+            method="POST",
+            url=f"{url}/chat/completions",
+            data=payload,
+            headers=headers,
+        )
 
         # Check if response is SSE
         if "text/event-stream" in r.headers.get("Content-Type", ""):
             streaming = True
             return StreamingResponse(
-                r.aiter_text(),
+                r.content,
                 status_code=r.status,
                 headers=dict(r.headers),
                 background=BackgroundTask(
@@ -425,24 +425,29 @@ async def generate_chat_completion(
                 ),
             )
         else:
-            response_data = r.json()
-            return response_data
+            try:
+                response = await r.json()
+            except Exception as e:
+                log.error(e)
+                response = await r.text()
+
+            r.raise_for_status()
+            return response
     except Exception as e:
         log.exception(e)
         error_detail = "Open WebUI: Server Connection Error"
-        if r is not None:
-            try:
-                res = await r.json()
-                print(res)
-                if "error" in res:
-                    error_detail = f"External: {res['error']['message'] if 'message' in res['error'] else res['error']}"
-            except Exception:
-                error_detail = f"External: {e}"
+        if isinstance(response, dict):
+            if "error" in response:
+                error_detail = f"{response['error']['message'] if 'message' in response['error'] else response['error']}"
+        elif isinstance(response, str):
+            error_detail = response
+
         raise HTTPException(status_code=r.status if r else 500, detail=error_detail)
     finally:
         if not streaming and session:
             if r:
-               r.close()
+                r.close()
+            await session.close()
 
 
 @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
@@ -465,23 +470,26 @@ async def proxy(path: str, request: Request, user=Depends(get_verified_user)):
     streaming = False
 
     try:
-        async with httpx.AsyncClient(trust_env=True) as session:
-            r = await session.request(
-                method=request.method,
-                url=target_url,
-                json=body,
-                headers=headers,
-            )
+        session = aiohttp.ClientSession(trust_env=True)
+        r = await session.request(
+            method=request.method,
+            url=target_url,
+            data=body,
+            headers=headers,
+        )
 
-            r.raise_for_status()
+        r.raise_for_status()
 
         # Check if response is SSE
         if "text/event-stream" in r.headers.get("Content-Type", ""):
             streaming = True
             return StreamingResponse(
-                r.aiter_text(),
-                status_code=r.status_code,
+                r.content,
+                status_code=r.status,
                 headers=dict(r.headers),
+                background=BackgroundTask(
+                    cleanup_response, response=r, session=session
+                ),
             )
         else:
             response_data = await r.json()

@@ -14,7 +14,10 @@
 		pinnedChats,
 		scrollPaginationEnabled,
 		currentChatPage,
-		temporaryChatEnabled
+		temporaryChatEnabled,
+		showArtifacts,
+		showOverview,
+		showControls
 	} from '$lib/stores';
 	import { onMount, getContext, tick } from 'svelte';
 
@@ -115,7 +118,11 @@
 			}
 		});
 
-		showSidebar.set(window.innerWidth > BREAKPOINT);
+		showSidebar.set(!$mobile ? localStorage.sidebar === 'true' : false);
+		showSidebar.subscribe((value) => {
+			localStorage.sidebar = value;
+		});
+
 		await pinnedChats.set(await getChatListByTagName(localStorage.token, 'pinned'));
 		await enablePagination();
 
@@ -461,7 +468,7 @@
 				</div>
 			{/if}
 
-			{#if $pinnedChats.length > 0}
+			{#if !search && $pinnedChats.length > 0}
 				<div class="pl-2 py-2 flex flex-col space-y-1">
 					<div class="">
 						<div class="w-full pl-2.5 text-xs text-gray-500 dark:text-gray-500 font-medium pb-1.5">

@@ -394,7 +394,7 @@ export const getPipelinesList = async (token: string = '') => {
 		throw error;
 	}
 
-	const pipelines = res?.data ?? [];
+	let pipelines = res?.data ?? [];
 	return pipelines;
 };
 
@@ -537,7 +537,7 @@ export const getPipelines = async (token: string, urlIdx?: string) => {
 		throw error;
 	}
 
-	const pipelines = res?.data ?? [];
+	let pipelines = res?.data ?? [];
 	return pipelines;
 };
 

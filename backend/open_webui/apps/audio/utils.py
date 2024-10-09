@@ -175,9 +175,9 @@ class OpenAIVoiceReactAgent(BaseModel):
     url: str = Field(default=DEFAULT_URL)
 
     async def aconnect(
-            self,
-            input_stream: AsyncIterator[str],
-            send_output_chunk: Callable[[str], Coroutine[Any, Any, None]],
+        self,
+        input_stream: AsyncIterator[str],
+        send_output_chunk: Callable[[str], Coroutine[Any, Any, None]],
     ) -> None:
         """
         Connect to the OpenAI API and send and receive messages.
@@ -196,10 +196,10 @@ class OpenAIVoiceReactAgent(BaseModel):
         tool_executor = VoiceToolExecutor(tools_by_name=tools_by_name)
 
         async with connect(
-                model=self.model, api_key=self.api_key.get_secret_value(), url=self.url
+            model=self.model, api_key=self.api_key.get_secret_value(), url=self.url
         ) as (
-                model_send,
-                model_receive_stream,
+            model_send,
+            model_receive_stream,
         ):
             # sent tools and instructions with initial chunk
             tool_defs = [
@@ -224,9 +224,9 @@ class OpenAIVoiceReactAgent(BaseModel):
                 }
             )
             async for stream_key, data_raw in amerge(
-                    input_mic=input_stream,
-                    output_speaker=model_receive_stream,
-                    tool_outputs=tool_executor.output_iterator(),
+                input_mic=input_stream,
+                output_speaker=model_receive_stream,
+                tool_outputs=tool_executor.output_iterator(),
             ):
                 try:
                     data = (
@@ -243,7 +243,6 @@ class OpenAIVoiceReactAgent(BaseModel):
                     await model_send(data)
                     await model_send({"type": "response.create", "response": {}})
                 elif stream_key == "output_speaker":
-
                     t = data["type"]
                     if t == "response.audio.delta":
                         await send_output_chunk(json.dumps(data))
@@ -278,6 +277,7 @@ async def websocket_stream(websocket: WebSocket) -> AsyncIterator[str]:
     while True:
         data = await websocket.receive_text()
         yield data
+
 
 async def amerge(**streams: AsyncIterator[T]) -> AsyncIterator[tuple[str, T]]:
     """Merge multiple streams into one stream."""

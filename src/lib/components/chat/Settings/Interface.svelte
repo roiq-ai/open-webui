@@ -29,6 +29,7 @@
 	let defaultModelId = '';
 	let showUsername = false;
 
+	let landingPageMode = '';
 	let chatBubble = true;
 	let chatDirection: 'LTR' | 'RTL' = 'LTR';
 
@@ -36,16 +37,9 @@
 	let voiceInterruption = false;
 	let hapticFeedback = false;
 
-	let streamResponse = true;
-
 	const toggleSplitLargeChunks = async () => {
 		splitLargeChunks = !splitLargeChunks;
 		saveSettings({ splitLargeChunks: splitLargeChunks });
-	};
-
-	const toggleStreamResponse = async () => {
-		streamResponse = !streamResponse;
-		saveSettings({ streamResponse: streamResponse });
 	};
 
 	const togglesScrollOnBranchChange = async () => {
@@ -61,6 +55,11 @@
 	const toggleChatBubble = async () => {
 		chatBubble = !chatBubble;
 		saveSettings({ chatBubble: chatBubble });
+	};
+
+	const toggleLandingPageMode = async () => {
+		landingPageMode = landingPageMode === '' ? 'chat' : '';
+		saveSettings({ landingPageMode: landingPageMode });
 	};
 
 	const toggleShowUsername = async () => {
@@ -157,6 +156,7 @@
 		showEmojiInCall = $settings.showEmojiInCall ?? false;
 		voiceInterruption = $settings.voiceInterruption ?? false;
 
+		landingPageMode = $settings.landingPageMode ?? '';
 		chatBubble = $settings.chatBubble ?? true;
 		widescreenMode = $settings.widescreenMode ?? false;
 		splitLargeChunks = $settings.splitLargeChunks ?? false;
@@ -165,7 +165,6 @@
 		userLocation = $settings.userLocation ?? false;
 
 		hapticFeedback = $settings.hapticFeedback ?? false;
-		streamResponse = $settings?.streamResponse ?? true;
 
 		defaultModelId = $settings?.models?.at(0) ?? '';
 		if ($config?.default_models) {
@@ -236,6 +235,26 @@
 
 		<div>
 			<div class=" mb-1.5 text-sm font-medium">{$i18n.t('UI')}</div>
+
+			<div>
+				<div class=" py-0.5 flex w-full justify-between">
+					<div class=" self-center text-xs">{$i18n.t('Landing Page Mode')}</div>
+
+					<button
+						class="p-1 px-3 text-xs flex rounded transition"
+						on:click={() => {
+							toggleLandingPageMode();
+						}}
+						type="button"
+					>
+						{#if landingPageMode === ''}
+							<span class="ml-2 self-center">{$i18n.t('Default')}</span>
+						{:else}
+							<span class="ml-2 self-center">{$i18n.t('Chat')}</span>
+						{/if}
+					</button>
+				</div>
+			</div>
 
 			<div>
 				<div class=" py-0.5 flex w-full justify-between">
@@ -314,28 +333,6 @@
 							<span class="ml-2 self-center">{$i18n.t('LTR')}</span>
 						{:else}
 							<span class="ml-2 self-center">{$i18n.t('RTL')}</span>
-						{/if}
-					</button>
-				</div>
-			</div>
-
-			<div>
-				<div class=" py-0.5 flex w-full justify-between">
-					<div class=" self-center text-xs">
-						{$i18n.t('Stream Chat Response')}
-					</div>
-
-					<button
-						class="p-1 px-3 text-xs flex rounded transition"
-						on:click={() => {
-							toggleStreamResponse();
-						}}
-						type="button"
-					>
-						{#if streamResponse === true}
-							<span class="ml-2 self-center">{$i18n.t('On')}</span>
-						{:else}
-							<span class="ml-2 self-center">{$i18n.t('Off')}</span>
 						{/if}
 					</button>
 				</div>

@@ -34,7 +34,7 @@ services:
     command: >
         bash -c "./dev.sh"
     env_file:
-      - .env
+      - ./ignore/envfile.env
 
   chroma:
     image: chromadb/chroma:latest
@@ -65,7 +65,7 @@ services:
     volumes:
       - ./ignore/pipelines:/app/pipelines/
     env_file:
-      - .env
+      - ./ignore/envfile.env
     stdin_open: true
     restart: always
 

@@ -1,12 +1,9 @@
-import asyncio
 import uuid
 
 import pytest
 
-from conftest import some_user
 from test.util.abstract_integration_test import AbstractPostgresTest
 from test.util.mock_user import mock_webui_user
-from httpx import AsyncClient, ASGITransport
 from open_webui.apps.webui.models.auths import Auths
 from open_webui.apps.webui.models.users import Users
 from utils.utils import get_password_hash

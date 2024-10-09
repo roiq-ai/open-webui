@@ -9,24 +9,25 @@ from typing import Generic, Optional, TypeVar
 from urllib.parse import urlparse
 
 import chromadb
-import markdown
 import yaml
+import markdown
 from bs4 import BeautifulSoup
-from chromadb import Settings
 from pydantic import BaseModel
-
+from chromadb import Settings
 from open_webui.env import (
     DATA_DIR,
+    ENV,
     WEBUI_AUTH,
+    WEBUI_NAME,
     log,
     BASE_DIR,
-    BACKEND_DIR,
 )
 
 ####################################
 # Load .env file
 ####################################
 
+SRC_LOG_LEVELS = "INFO"
 
 try:
     from dotenv import find_dotenv, load_dotenv
@@ -984,6 +985,27 @@ else:
     CHROMA_CLIENT = chromadb.PersistentClient(path=f"{DATA_DIR}/vector_db")
 # this uses the model defined in the Dockerfile ENV variable. If you dont use docker or docker based deployments such as k8s, the default embedding model will be used (sentence-transformers/all-MiniLM-L6-v2)
 
+# Milvus
+
+MILVUS_URI = os.environ.get("MILVUS_URI", f"{DATA_DIR}/vector_db/milvus.db")
+
+####################################
+# Information Retrieval (RAG)
+####################################
+
+# RAG Content Extraction
+CONTENT_EXTRACTION_ENGINE = PersistentConfig(
+    "CONTENT_EXTRACTION_ENGINE",
+    "rag.CONTENT_EXTRACTION_ENGINE",
+    os.environ.get("CONTENT_EXTRACTION_ENGINE", "").lower(),
+)
+
+TIKA_SERVER_URL = PersistentConfig(
+    "TIKA_SERVER_URL",
+    "rag.tika_server_url",
+    os.getenv("TIKA_SERVER_URL", "http://tika:9998"),  # Default for sidecar deployment
+)
+
 RAG_TOP_K = PersistentConfig(
     "RAG_TOP_K", "rag.top_k", int(os.environ.get("RAG_TOP_K", "5"))
 )
@@ -1111,19 +1133,25 @@ CHUNK_OVERLAP = PersistentConfig(
     int(os.environ.get("CHUNK_OVERLAP", "100")),
 )
 
-DEFAULT_RAG_TEMPLATE = """Use the following context as your learned knowledge, inside <context></context> XML tags.
+DEFAULT_RAG_TEMPLATE = """You are given a user query, some textual context and rules, all inside xml tags. You have to answer the query based on the context while respecting the rules.
+
 <context>
-    [context]
+[context]
 </context>
 
-When answer to user:
-- If you don't know, just say that you don't know.
-- If you don't know when you are not sure, ask for clarification.
-Avoid mentioning that you obtained the information from the context.
-And answer according to the language of the user's question.
+<rules>
+- If you don't know, just say so.
+- If you are not sure, ask for clarification.
+- Answer in the same language as the user query.
+- If the context appears unreadable or of poor quality, tell the user then answer as best as you can.
+- If the answer is not in the context but you think you know the answer, explain that to the user then answer with your own knowledge.
+- Answer directly and without using xml tags.
+</rules>
 
-Given the context information, answer the query.
-Query: [query]"""
+<user_query>
+[query]
+</user_query>
+"""
 
 RAG_TEMPLATE = PersistentConfig(
     "RAG_TEMPLATE",
@@ -1291,6 +1319,37 @@ AUTOMATIC1111_API_AUTH = PersistentConfig(
     "AUTOMATIC1111_API_AUTH",
     "image_generation.automatic1111.api_auth",
     os.getenv("AUTOMATIC1111_API_AUTH", ""),
+)
+
+AUTOMATIC1111_CFG_SCALE = PersistentConfig(
+    "AUTOMATIC1111_CFG_SCALE",
+    "image_generation.automatic1111.cfg_scale",
+    (
+        float(os.environ.get("AUTOMATIC1111_CFG_SCALE"))
+        if os.environ.get("AUTOMATIC1111_CFG_SCALE")
+        else None
+    ),
+)
+
+
+AUTOMATIC1111_SAMPLER = PersistentConfig(
+    "AUTOMATIC1111_SAMPLERE",
+    "image_generation.automatic1111.sampler",
+    (
+        os.environ.get("AUTOMATIC1111_SAMPLER")
+        if os.environ.get("AUTOMATIC1111_SAMPLER")
+        else None
+    ),
+)
+
+AUTOMATIC1111_SCHEDULER = PersistentConfig(
+    "AUTOMATIC1111_SCHEDULER",
+    "image_generation.automatic1111.scheduler",
+    (
+        os.environ.get("AUTOMATIC1111_SCHEDULER")
+        if os.environ.get("AUTOMATIC1111_SCHEDULER")
+        else None
+    ),
 )
 
 COMFYUI_BASE_URL = PersistentConfig(
@@ -1517,15 +1576,16 @@ AUDIO_TTS_SPLIT_ON = PersistentConfig(
     os.getenv("AUDIO_TTS_SPLIT_ON", "punctuation"),
 )
 
-
-####################################
-# Database
-####################################
-
-DATABASE_URL = os.environ.get(
-    "DATABASE_URL", f"sqlite+aiosqlite:///{DATA_DIR}/webui.db"
+AUDIO_TTS_AZURE_SPEECH_REGION = PersistentConfig(
+    "AUDIO_TTS_AZURE_SPEECH_REGION",
+    "audio.tts.azure.speech_region",
+    os.getenv("AUDIO_TTS_AZURE_SPEECH_REGION", "eastus"),
 )
 
-# Replace the postgres:// with postgresql://
-if "postgres://" in DATABASE_URL:
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://")
+AUDIO_TTS_AZURE_SPEECH_OUTPUT_FORMAT = PersistentConfig(
+    "AUDIO_TTS_AZURE_SPEECH_OUTPUT_FORMAT",
+    "audio.tts.azure.speech_output_format",
+    os.getenv(
+        "AUDIO_TTS_AZURE_SPEECH_OUTPUT_FORMAT", "audio-24khz-160kbitrate-mono-mp3"
+    ),
+)

@@ -2,6 +2,7 @@ import logging
 from typing import List, Optional
 
 from open_webui.config import CHROMA_CLIENT, SRC_LOG_LEVELS
+from open_webui.apps.retrieval.main import VECTOR_DB_CLIENT
 from fastapi import APIRouter, Depends, HTTPException, Request
 from open_webui.apps.webui.models.memories import Memories, MemoryModel
 from open_webui.utils.utils import get_verified_user
@@ -50,7 +51,9 @@ async def add_memory(
     memory = await Memories.insert_new_memory(user.id, form_data.content)
     memory_embedding = request.app.state.EMBEDDING_FUNCTION(memory.content)
 
-    collection = CHROMA_CLIENT.get_or_create_collection(name=f"user-memory-{user.id}")
+    collection = VECTOR_DB_CLIENT.get_or_create_collection(
+        name=f"user-memory-{user.id}"
+    )
     collection.upsert(
         documents=[memory.content],
         ids=[memory.id],

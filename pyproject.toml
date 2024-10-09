@@ -72,6 +72,11 @@ dependencies = [
     "openai>=1.50.2",
     "websockets>=13.1",
     "community>=1.0.0b1",
+    "ftfy>=6.2.3",
+    "redis>=5.1.1",
+    "colbert>=0.40",
+    "pymilvus>=2.4.7",
+    "colbert-ai>=0.2.21",
 ]
 readme = "README.md"
 requires-python = ">= 3.11, < 3.12.0a1"

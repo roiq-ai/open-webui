@@ -11,6 +11,8 @@
 
 -e file:.
 aiohttp==3.9.5
+    # via datasets
+    # via fsspec
     # via langchain
     # via langchain-community
     # via open-webui
@@ -66,6 +68,8 @@ beautifulsoup4==4.12.3
     # via unstructured
 bidict==0.23.1
     # via python-socketio
+bitarray==2.9.2
+    # via colbert-ai
 black==24.4.2
     # via open-webui
 blinker==1.8.2
@@ -108,6 +112,10 @@ click==8.1.7
     # via peewee-migrate
     # via typer
     # via uvicorn
+colbert==0.40
+    # via open-webui
+colbert-ai==0.2.21
+    # via open-webui
 colorclass==2.2.2
     # via oletools
 coloredlogs==15.0.1
@@ -126,6 +134,8 @@ dataclasses-json==0.6.6
     # via langchain-community
     # via unstructured
     # via unstructured-client
+datasets==3.0.1
+    # via colbert-ai
 deepdiff==7.0.1
     # via unstructured-client
 defusedxml==0.7.1
@@ -133,6 +143,9 @@ defusedxml==0.7.1
 deprecated==1.2.14
     # via opentelemetry-api
     # via opentelemetry-exporter-otlp-proto-grpc
+dill==0.3.8
+    # via datasets
+    # via multiprocess
 distro==1.9.0
     # via openai
 dnspython==2.6.1
@@ -153,6 +166,8 @@ email-validator==2.1.1
     # via fastapi
 emoji==2.11.1
     # via unstructured
+environs==9.5.0
+    # via pymilvus
 et-xmlfile==1.1.0
     # via openpyxl
 extract-msg==0.48.5
@@ -171,12 +186,14 @@ fastapi-cli==0.0.4
 faster-whisper==1.0.2
     # via open-webui
 filelock==3.14.0
+    # via datasets
     # via huggingface-hub
     # via torch
     # via transformers
 filetype==1.2.0
     # via unstructured
 flask==3.0.3
+    # via colbert-ai
     # via community
     # via flask-cors
     # via open-webui
@@ -192,8 +209,17 @@ frozenlist==1.4.1
     # via aiohttp
     # via aiosignal
 fsspec==2024.3.1
+    # via datasets
     # via huggingface-hub
     # via torch
+ftfy==6.2.3
+    # via open-webui
+git-python==1.0.3
+    # via colbert-ai
+gitdb==4.0.11
+    # via gitpython
+gitpython==3.1.43
+    # via git-python
 google-ai-generativelanguage==0.6.4
     # via google-generativeai
 google-api-core==2.19.0
@@ -225,6 +251,7 @@ grpcio==1.63.0
     # via google-api-core
     # via grpcio-status
     # via opentelemetry-exporter-otlp-proto-grpc
+    # via pymilvus
 grpcio-status==1.62.2
     # via google-api-core
 h11==0.14.0
@@ -246,12 +273,15 @@ httpx==0.27.2
     # via open-webui
     # via openai
 huggingface-hub==0.23.0
+    # via datasets
     # via faster-whisper
     # via sentence-transformers
     # via tokenizers
     # via transformers
 humanfriendly==10.0
     # via coloredlogs
+icalendar==6.0.0
+    # via colbert
 idna==3.7
     # via anyio
     # via email-validator
@@ -329,9 +359,12 @@ markupsafe==2.1.5
     # via werkzeug
 marshmallow==3.21.2
     # via dataclasses-json
+    # via environs
     # via unstructured-client
 mdurl==0.1.2
     # via markdown-it-py
+milvus-lite==2.4.10
+    # via pymilvus
 mmh3==4.1.0
     # via chromadb
 monotonic==1.6
@@ -343,18 +376,23 @@ msoffcrypto-tool==5.4.1
 multidict==6.0.5
     # via aiohttp
     # via yarl
+multiprocess==0.70.16
+    # via datasets
 mypy-extensions==1.0.0
     # via black
     # via typing-inspect
     # via unstructured-client
 networkx==3.3
     # via torch
+ninja==1.11.1.1
+    # via colbert-ai
 nltk==3.8.1
     # via unstructured
 numpy==1.26.4
     # via chroma-hnswlib
     # via chromadb
     # via ctranslate2
+    # via datasets
     # via langchain
     # via langchain-chroma
     # via langchain-community
@@ -362,6 +400,7 @@ numpy==1.26.4
     # via opencv-python
     # via opencv-python-headless
     # via pandas
+    # via pyarrow
     # via rank-bm25
     # via rapidocr-onnxruntime
     # via scikit-learn
@@ -437,6 +476,7 @@ overrides==7.7.0
 packaging==23.2
     # via black
     # via build
+    # via datasets
     # via huggingface-hub
     # via langchain-core
     # via langfuse
@@ -446,7 +486,9 @@ packaging==23.2
     # via transformers
     # via unstructured-client
 pandas==2.2.2
+    # via datasets
     # via open-webui
+    # via pymilvus
 passlib==1.7.4
     # via open-webui
 pathspec==0.12.1
@@ -484,8 +526,11 @@ protobuf==4.25.3
     # via onnxruntime
     # via opentelemetry-proto
     # via proto-plus
+    # via pymilvus
 psycopg2-binary==2.9.9
     # via open-webui
+pyarrow==17.0.0
+    # via datasets
 pyasn1==0.6.0
     # via pyasn1-modules
     # via python-jose
@@ -519,6 +564,8 @@ pygments==2.18.0
     # via rich
 pyjwt==2.8.0
     # via open-webui
+pymilvus==2.4.7
+    # via open-webui
 pymysql==1.1.0
     # via open-webui
 pypandoc==1.13
@@ -547,6 +594,7 @@ pytest-env==1.1.4
     # via open-webui
 python-dateutil==2.9.0.post0
     # via botocore
+    # via icalendar
     # via kubernetes
     # via pandas
     # via pendulum
@@ -554,6 +602,8 @@ python-dateutil==2.9.0.post0
     # via time-machine
     # via unstructured-client
 python-dotenv==1.0.1
+    # via colbert-ai
+    # via environs
     # via pydantic-settings
     # via uvicorn
 python-engineio==4.9.0
@@ -573,12 +623,14 @@ pytube==15.0.0
     # via open-webui
 pytz==2024.1
     # via apscheduler
+    # via colbert
     # via pandas
 pyxlsb==1.0.10
     # via open-webui
 pyyaml==6.0.1
     # via chromadb
     # via ctranslate2
+    # via datasets
     # via huggingface-hub
     # via kubernetes
     # via langchain
@@ -595,11 +647,14 @@ rapidocr-onnxruntime==1.3.22
     # via open-webui
 red-black-tree-mod==1.20
     # via extract-msg
+redis==5.1.1
+    # via open-webui
 regex==2024.5.10
     # via nltk
     # via transformers
 requests==2.32.2
     # via community
+    # via datasets
     # via docker
     # via google-api-core
     # via huggingface-hub
@@ -634,6 +689,7 @@ safetensors==0.4.3
 scikit-learn==1.4.2
     # via sentence-transformers
 scipy==1.13.0
+    # via colbert-ai
     # via scikit-learn
     # via sentence-transformers
 sentence-transformers==2.7.0
@@ -641,6 +697,7 @@ sentence-transformers==2.7.0
 setuptools==69.5.1
     # via ctranslate2
     # via opentelemetry-instrumentation
+    # via pymilvus
 shapely==2.0.4
     # via rapidocr-onnxruntime
 shellingham==1.5.4
@@ -656,6 +713,8 @@ six==1.16.0
     # via python-dateutil
     # via rapidocr-onnxruntime
     # via unstructured-client
+smmap==5.0.1
+    # via gitdb
 sniffio==1.3.1
     # via anyio
     # via httpx
@@ -694,13 +753,17 @@ torch==2.3.0
     # via sentence-transformers
 tqdm==4.66.4
     # via chromadb
+    # via colbert-ai
+    # via datasets
     # via google-generativeai
     # via huggingface-hub
+    # via milvus-lite
     # via nltk
     # via openai
     # via sentence-transformers
     # via transformers
 transformers==4.39.3
+    # via colbert-ai
     # via sentence-transformers
 trio==0.26.2
     # via open-webui
@@ -730,13 +793,16 @@ typing-inspect==0.9.0
     # via dataclasses-json
     # via unstructured-client
 tzdata==2024.1
+    # via icalendar
     # via pandas
     # via pendulum
 tzlocal==5.2
     # via apscheduler
     # via extract-msg
 ujson==5.10.0
+    # via colbert-ai
     # via fastapi
+    # via pymilvus
 unstructured==0.14.0
     # via open-webui
 unstructured-client==0.22.0
@@ -760,6 +826,8 @@ validators==0.28.1
     # via open-webui
 watchfiles==0.21.0
     # via uvicorn
+wcwidth==0.2.13
+    # via ftfy
 websocket-client==1.8.0
     # via kubernetes
 websockets==13.1
@@ -776,6 +844,8 @@ wsproto==1.2.0
     # via simple-websocket
 xlrd==2.0.1
     # via open-webui
+xxhash==3.5.0
+    # via datasets
 yarl==1.9.4
     # via aiohttp
 youtube-transcript-api==0.6.2

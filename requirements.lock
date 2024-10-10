@@ -321,18 +321,21 @@ jsonpointer==2.4
     # via jsonpatch
 kubernetes==29.0.0
     # via chromadb
-langchain==0.3.2
+langchain==0.3.3
     # via langchain-community
     # via open-webui
 langchain-chroma==0.1.4
     # via open-webui
-langchain-community==0.3.1
+langchain-community==0.3.2
     # via open-webui
-langchain-core==0.3.9
+langchain-core==0.3.10
     # via langchain
     # via langchain-chroma
     # via langchain-community
+    # via langchain-openai
     # via langchain-text-splitters
+langchain-openai==0.2.2
+    # via open-webui
 langchain-text-splitters==0.3.0
     # via langchain
 langdetect==1.0.9
@@ -424,6 +427,7 @@ onnxruntime==1.17.3
     # via faster-whisper
     # via rapidocr-onnxruntime
 openai==1.50.2
+    # via langchain-openai
     # via open-webui
 opencv-python==4.9.0.80
     # via rapidocr-onnxruntime
@@ -651,6 +655,7 @@ redis==5.1.1
     # via open-webui
 regex==2024.5.10
     # via nltk
+    # via tiktoken
     # via transformers
 requests==2.32.2
     # via community
@@ -666,6 +671,7 @@ requests==2.32.2
     # via posthog
     # via requests-oauthlib
     # via requests-toolbelt
+    # via tiktoken
     # via transformers
     # via unstructured
     # via unstructured-client
@@ -743,6 +749,8 @@ tenacity==8.3.0
     # via langchain-core
 threadpoolctl==3.5.0
     # via scikit-learn
+tiktoken==0.8.0
+    # via langchain-openai
 time-machine==2.15.0
     # via pendulum
 tokenizers==0.15.2

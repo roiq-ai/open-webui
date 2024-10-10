@@ -689,9 +689,7 @@ def save_docs_to_vector_db(
             app.state.config.RAG_EMBEDDING_OPENAI_BATCH_SIZE,
         )
 
-        embeddings = embedding_function(
-            list(map(lambda x: x.replace("\n", " "), texts))
-        )
+        embeddings = embedding_function(list(texts))
 
         items = [
             {

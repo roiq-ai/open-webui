@@ -99,6 +99,25 @@ async def get_knowledge_by_id(id: str, user=Depends(get_verified_user)):
         )
 
 
+@router.get("/{name}", response_model=Optional[KnowledgeFilesResponse])
+async def get_knowledge_by_name(name: str, user=Depends(get_verified_user)):
+    knowledge = await Knowledges.get_knowledge_by_name(name=name)
+
+    if knowledge:
+        file_ids = knowledge.data.get("file_ids", []) if knowledge.data else []
+        files = await Files.get_files_by_ids(file_ids)
+
+        return KnowledgeFilesResponse(
+            **knowledge.model_dump(),
+            files=files,
+        )
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=ERROR_MESSAGES.NOT_FOUND,
+        )
+
+
 ############################
 # UpdateKnowledgeById
 ############################

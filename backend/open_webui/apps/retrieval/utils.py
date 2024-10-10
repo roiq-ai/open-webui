@@ -74,8 +74,6 @@ def query_doc(
             vectors=[query_embedding],
             limit=k,
         )
-
-        log.info(f"query_doc:result {result}")
         return result
     except Exception as e:
         print(e)

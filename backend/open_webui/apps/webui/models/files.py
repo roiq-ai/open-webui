@@ -5,7 +5,17 @@ from typing import List, Optional
 from open_webui.config import SRC_LOG_LEVELS
 from open_webui.apps.webui.internal.db import Base, JSONField, get_db
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import BigInteger, Column, String, Text, delete, select, update, JSON
+from sqlalchemy import (
+    BigInteger,
+    Column,
+    String,
+    Text,
+    delete,
+    select,
+    update,
+    JSON,
+    text,
+)
 
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["MODELS"])
@@ -94,6 +104,15 @@ class FilesTable:
                 return None
             return FileModel.model_validate(file)
 
+    async def get_file_by_name(self, name: str) -> Optional[FileModel]:
+        async with get_db() as db:
+            stmt = select(File).where(File.filename.ilike(f"%{name}%"))
+            res = await db.execute(stmt)
+            file = res.scalars().first()
+            if file is None:
+                return None
+            return file
+
     async def get_files(self) -> List[FileModel]:
         async with get_db() as db:
             files = await db.execute(select(File))
@@ -149,6 +168,16 @@ class FilesTable:
             await db.commit()
             file = await db.get(File, id)
             return FileModel.model_validate(file)
+
+    async def get_collection_name_by_account(self, account_id):
+        stmt = f"""
+            SELECT data as collection_name
+            FROM file
+            WHERE filename ilike '%{account_id}%'
+        """
+        async with get_db() as db:
+            res = await db.execute(text(stmt))
+            return res.scalars().all()
 
 
 Files = FilesTable()

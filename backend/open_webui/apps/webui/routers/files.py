@@ -144,6 +144,19 @@ async def get_file_by_id(id: str, user=Depends(get_verified_user)):
         )
 
 
+@router.get("/name/{name}", response_model=Optional[FileModel])
+async def get_file_by_name(name: str, user=Depends(get_verified_user)):
+    file = await Files.get_file_by_name(name)
+
+    if file:
+        return file
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ERROR_MESSAGES.NOT_FOUND,
+        )
+
+
 ############################
 # Get File Data Content By Id
 ############################

@@ -123,6 +123,13 @@ class KnowledgeTable:
             res = res.scalar()
             return KnowledgeModel.model_validate(res) if res else None
 
+    async def get_knowledge_by_name(self, name: str):
+        async with get_db() as db:
+            stmt = select(Knowledge).where(Knowledge.name == name)
+            res = await db.execute(stmt)
+            res = res.scalar()
+            return KnowledgeModel.model_validate(res) if res else None
+
     async def update_knowledge_by_id(
         self, id: str, form_data: KnowledgeUpdateForm, overwrite: bool = False
     ) -> Optional[KnowledgeModel]:

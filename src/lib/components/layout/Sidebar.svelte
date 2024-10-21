@@ -344,9 +344,9 @@
 				}}
 			>
 				<div class="self-center mx-1.5">
-					<img crossorigin="anonymous" src="{WEBUI_BASE_URL}/static/favicon.png" />
+					<img crossorigin="anonymous" src=" /static/favicon.png" class="size-6 -translate-x-1.5 rounded-full"/>
 				</div>
-				<div class=" self-center font-medium text-sm text-gray-850 dark:text-white font-primary">
+				<div class=" self-center font-medium text-sm text-gray-850 dark:text-white font-primary max-h-fit">
 					{$i18n.t('New Chat')}
 				</div>
 				<div class="self-center ml-auto">
@@ -516,7 +516,7 @@
 				{$i18n.t('Chats')}
 			</div>
 			<div
-				class="pl-2 my-2 flex-1 flex flex-col space-y-1 overflow-y-auto scrollbar-hidden h-full max-h-full"
+				class="pl-2 my-2 flex-1 flex flex-col space-y-1 overflow-y-auto scrollbar-hidden h-full max-h-fit"
 			>
 				{#if !search && $pinnedChats.length > 0}
 					<div class="">
@@ -599,7 +599,7 @@
 			{$i18n.t('Prompts')}
 		</div>
 		<div
-			class="pl-2 my-2 flex-1 flex flex-col space-y-1 overflow-y-auto scrollbar-hidden h-full max-h-full"
+			class="pl-2 my-2 flex-1 flex flex-col space-y-1 overflow-y-auto scrollbar-hidden h-full max-h-fit"
 		>
 			{#if checkForPrompts(selected_models)}
 				{#each Object.entries(checkForPrompts(selected_models)) as [modelPrompt, prompts]}

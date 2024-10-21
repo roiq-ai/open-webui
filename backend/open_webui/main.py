@@ -839,7 +839,7 @@ app.add_middleware(PipelineMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["localhost","*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -2418,7 +2418,7 @@ async def healthcheck_with_db():
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.mount("/cache", StaticFiles(directory=CACHE_DIR), name="cache")
-
+print(STATIC_DIR)
 if os.path.exists(FRONTEND_BUILD_DIR):
     mimetypes.add_type("text/javascript", ".js")
     app.mount(

@@ -469,7 +469,7 @@ load_oauth_providers()
 ####################################
 
 STATIC_DIR = Path(
-    os.getenv("STATIC_DIR", os.path.join(Path(os.path.dirname(__file__)).parent.parent, "static"))
+    os.getenv("STATIC_DIR", os.path.join(Path(os.path.dirname(__file__)), "static"))
 ).resolve()
 
 ####################################

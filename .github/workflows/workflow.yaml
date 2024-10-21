@@ -56,7 +56,7 @@ jobs:
         source "$HOME/.rye/env"
         rye version -b minor
         echo Version: $(rye version)
-        echo "VERSION=$(git rev-parse --abbrev-ref HEAD)" >> $GITHUB_OUTPUT
+        echo "VERSION=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
 
     - name: Login to Amazon ECR

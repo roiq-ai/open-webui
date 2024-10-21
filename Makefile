@@ -3,7 +3,7 @@ BACKEND := $(shell pwd)/backend
 AWS_ACCOUNT=875668830489
 AWS_REGION=us-east-1
 ECR := 875668830489.dkr.ecr.us-east-1.amazonaws.com/roiqai-service
-TAG := $(shell rye version)
+TAG := $(shell git rev-parse --abbrev-ref HEAD)
 
 ifneq ($(shell which docker-compose 2>/dev/null),)
     DOCKER_COMPOSE := docker-compose

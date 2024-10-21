@@ -4,7 +4,7 @@
 	import mermaid from 'mermaid';
 	import { PaneGroup, Pane, PaneResizer } from 'paneforge';
 
-	import { getContext, onDestroy, onMount, tick } from 'svelte';
+	import { getContext, onDestroy, onMount, setContext, tick } from 'svelte';
 	const i18n: Writable<i18nType> = getContext('i18n');
 
 	import { goto } from '$app/navigation';
@@ -33,7 +33,8 @@
 		mobile,
 		showOverview,
 		chatTitle,
-		showArtifacts
+		showArtifacts,
+		submitPromptTrigger
 	} from '$lib/stores';
 	import {
 		convertMessagesToHistory,
@@ -97,7 +98,9 @@
 	let selectedModels = [''];
 	let atSelectedModel: Model | undefined;
 	let selectedModelIds = [];
-	$: selectedModelIds = atSelectedModel !== undefined ? [atSelectedModel.id] : selectedModels;
+	$: {
+		selectedModelIds = atSelectedModel !== undefined ? [atSelectedModel.id] : selectedModels;
+	}
 
 	let selectedToolIds = [];
 	let webSearchEnabled = false;
@@ -131,6 +134,11 @@
 			}
 		})();
 	}
+
+	const getRandomModel = () => {
+		const randomModel = $models[Math.floor(Math.random() * $models.length)];
+		atSelectedModel = randomModel;
+	};
 
 	const showMessage = async (message) => {
 		const _chatId = JSON.parse(JSON.stringify($chatId));
@@ -300,12 +308,6 @@
 		chatInput?.focus();
 
 		chats.subscribe(() => {});
-	});
-
-	onDestroy(() => {
-		chatIdUnsubscriber?.();
-		window.removeEventListener('message', onMessageHandler);
-		$socket?.off('chat-events');
 	});
 
 	//////////////////////////
@@ -1884,6 +1886,53 @@
 			}
 		}
 	};
+
+	const subscribe = submitPromptTrigger.subscribe(
+		async ({ trigger, content, model, isCurrentChat }) => {
+			console.log('Conttent', content, 'Model', model, 'Is current chat', isCurrentChat);
+			if (trigger) {
+				// console.log($models)
+				if (model !== null) {
+					if (isCurrentChat) {
+						if (selectedModels.length >= 0 && selectedModels.includes(model.id)) {
+							await submitPrompt(content);
+							submitPromptTrigger.set({ trigger: false, content: '', model: {} });
+							return;
+						} else {
+							selectedModels.push(model.id);
+							$page.url.searchParams.set('q', content);
+
+							selectedModels = [model.id];
+							await tick();
+							await submitPrompt(content);
+							// await submitPrompt(content);
+							submitPromptTrigger.set({ trigger: false, content: '', model: {} });
+							return;
+						}
+					}
+				} else {
+					if (isCurrentChat) {
+						await tick();
+						await submitPrompt(content);
+
+						submitPromptTrigger.set({ trigger: false, content: '', model: {} });
+					} else {
+						$page.url.searchParams.set('q', content);
+						await tick();
+
+						submitPromptTrigger.set({ trigger: false, content: '', model: {} });
+					}
+				}
+			}
+		}
+	);
+
+	onDestroy(() => {
+		chatIdUnsubscriber?.();
+		window.removeEventListener('message', onMessageHandler);
+		subscribe;
+		$socket?.off('chat-events');
+	});
 </script>
 
 <svelte:head>

@@ -190,7 +190,10 @@ def query_collection(
                     k=k,
                     query_embedding=query_embedding,
                 )
-                results.append(result.model_dump())
+                if result:
+                    results.append(result.model_dump())
+
+
             except Exception as e:
                 log.exception(f"Error when querying the collection: {e}")
         else:

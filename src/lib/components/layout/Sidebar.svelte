@@ -5,7 +5,6 @@
 		user,
 		chats,
 		settings,
-		showSettings,
 		chatId,
 		tags,
 		showSidebar,
@@ -15,11 +14,14 @@
 		scrollPaginationEnabled,
 		currentChatPage,
 		temporaryChatEnabled,
-		showArtifacts,
-		showOverview,
-		showControls
+		config,
+		modelsSelected,
+		submitPromptTrigger,
+		models
 	} from '$lib/stores';
-	import { onMount, getContext, tick } from 'svelte';
+	import { onMount, getContext, tick, createEventDispatcher } from 'svelte';
+	import { onDestroy } from 'svelte';
+	import { page } from '$app/stores';
 
 	const i18n = getContext('i18n');
 
@@ -29,10 +31,8 @@
 		getChatList,
 		getChatById,
 		getChatListByTagName,
-		updateChatById,
 		getAllChatTags,
-		archiveChatById,
-		cloneChatById
+		createNewChat
 	} from '$lib/apis/chats';
 	import { WEBUI_BASE_URL } from '$lib/constants';
 
@@ -42,6 +42,9 @@
 	import DeleteConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
 	import Spinner from '../common/Spinner.svelte';
 	import Loader from '../common/Loader.svelte';
+	import { sanitizeResponseContent, findWordIndices } from '$lib/utils';
+
+	const dispatch = createEventDispatcher();
 
 	const BREAKPOINT = 768;
 
@@ -58,11 +61,16 @@
 
 	let selectedTagName = null;
 
-	let filteredChatList = [];
-
 	// Pagination variables
 	let chatListLoading = false;
 	let allChatsLoaded = false;
+	let selected_models;
+
+	const subscription = modelsSelected.subscribe((value) => {
+		selected_models = value;
+	});
+
+	onDestroy(subscription);
 
 	$: filteredChatList = $chats.filter((chat) => {
 		if (search === '') {
@@ -74,10 +82,18 @@
 			let contentMatches = false;
 			// Access the messages within chat.chat.messages
 			if (chat.chat && chat.chat.messages && Array.isArray(chat.chat.messages)) {
-				contentMatches = chat.chat.messages.some((message) => {
-					// Check if message.content exists and includes the search query
-					return message.content && message.content.toLowerCase().includes(query);
-				});
+				try {
+					contentMatches = chat.chat.messages.some((message) => {
+						// Check if message.content exists and includes the search query
+						return message.content && message.content.toLowerCase().includes(query);
+					});
+				} catch (e) {
+					chat.chat.messages.some((message) => {
+						// Check if message.content exists and includes the search query
+						console.error(message);
+					});
+					return chat.chat.message && false;
+				}
 			}
 
 			return title.includes(query) || contentMatches;
@@ -106,6 +122,15 @@
 
 		chatListLoading = false;
 	};
+
+	const getRandomModel = () => {
+		let randomIndex = Math.floor(Math.random() * $models.length);
+
+		return $models[randomIndex];
+	};
+
+	let currentModels = [];
+	let prompts = [];
 
 	onMount(async () => {
 		mobile.subscribe((e) => {
@@ -192,6 +217,28 @@
 		};
 	});
 
+	const checkForPrompts = (models) => {
+		let prompts = {};
+		for (let i = 0; i < models.length; i++) {
+			if (models[i].model?.info?.meta?.suggestion_prompts) {
+				let prompt = [];
+				if (prompts[models[i].model.info.name]) {
+				}
+				for (const promptval of models[i].model.info.meta.suggestion_prompts) {
+					prompt.push(promptval);
+				}
+				prompts[models[i].model.info.name] = {
+					model: models[i].model,
+					prompts: prompt
+				};
+			}
+		}
+
+		if (Object.keys(prompts).length === 0) {
+			return false;
+		}
+		return prompts;
+	};
 	// Helper function to fetch and add chat content to each chat
 	const enrichChatsWithContent = async (chatList) => {
 		const enrichedChats = await Promise.all(
@@ -223,7 +270,7 @@
 			if ($chatId === id) {
 				await chatId.set('');
 				await tick();
-				goto('/');
+				await goto('/');
 			}
 
 			allChatsLoaded = false;
@@ -244,10 +291,10 @@
 
 <DeleteConfirmDialog
 	bind:show={showDeleteConfirm}
-	title={$i18n.t('Delete chat?')}
 	on:confirm={() => {
 		deleteChatHandler(deleteChat.id);
 	}}
+	title={$i18n.t('Delete chat?')}
 >
 	<div class=" text-sm text-gray-500 flex-1 line-clamp-3">
 		{$i18n.t('This will delete')} <span class="  font-semibold">{deleteChat.title}</span>.
@@ -267,12 +314,12 @@
 
 <div
 	bind:this={navElement}
-	id="sidebar"
 	class="h-screen max-h-[100dvh] min-h-screen select-none {$showSidebar
 		? 'md:relative w-[260px]'
 		: '-translate-x-[260px] w-[0px]'} bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-200 text-sm transition fixed z-50 top-0 left-0
         "
 	data-state={$showSidebar}
+	id="sidebar"
 >
 	<div
 		class="py-2.5 my-auto flex flex-col justify-between h-screen max-h-[100dvh] w-[260px] z-50 {$showSidebar
@@ -281,10 +328,9 @@
 	>
 		<div class="px-2.5 flex justify-between space-x-1 text-gray-600 dark:text-gray-400">
 			<a
-				id="sidebar-new-chat-button"
 				class="flex flex-1 justify-between rounded-xl px-2 h-full hover:bg-gray-100 dark:hover:bg-gray-900 transition"
-				href="/"
 				draggable="false"
+				href="/"
 				on:click={async () => {
 					selectedChatId = null;
 					await goto('/');
@@ -298,22 +344,17 @@
 				}}
 			>
 				<div class="self-center mx-1.5">
-					<img
-						crossorigin="anonymous"
-						src="{WEBUI_BASE_URL}/static/favicon.png"
-						class=" size-6 -translate-x-1.5 rounded-full"
-						alt="logo"
-					/>
+					<img crossorigin="anonymous" src="{WEBUI_BASE_URL}/static/favicon.png" />
 				</div>
 				<div class=" self-center font-medium text-sm text-gray-850 dark:text-white font-primary">
 					{$i18n.t('New Chat')}
 				</div>
 				<div class="self-center ml-auto">
 					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						viewBox="0 0 20 20"
-						fill="currentColor"
 						class="size-5"
+						fill="currentColor"
+						viewBox="0 0 20 20"
+						xmlns="http://www.w3.org/2000/svg"
 					>
 						<path
 							d="M5.433 13.917l1.262-3.155A4 4 0 017.58 9.42l6.92-6.918a2.121 2.121 0 013 3l-6.92 6.918c-.383.383-.84.685-1.343.886l-3.154 1.262a.5.5 0 01-.65-.65z"
@@ -333,17 +374,17 @@
 			>
 				<div class=" m-auto self-center">
 					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke-width="2"
-						stroke="currentColor"
 						class="size-5"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						viewBox="0 0 24 24"
+						xmlns="http://www.w3.org/2000/svg"
 					>
 						<path
+							d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12"
 							stroke-linecap="round"
 							stroke-linejoin="round"
-							d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12"
 						/>
 					</svg>
 				</div>
@@ -402,34 +443,37 @@
 				<div class="flex w-full rounded-xl" id="chat-search">
 					<div class="self-center pl-3 py-2 rounded-l-xl bg-transparent">
 						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							viewBox="0 0 20 20"
-							fill="currentColor"
 							class="w-4 h-4"
+							fill="currentColor"
+							viewBox="0 0 20 20"
+							xmlns="http://www.w3.org/2000/svg"
 						>
 							<path
-								fill-rule="evenodd"
-								d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z"
 								clip-rule="evenodd"
+								d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z"
+								fill-rule="evenodd"
 							/>
 						</svg>
 					</div>
 
 					<input
-						class="w-full rounded-r-xl py-1.5 pl-2.5 pr-4 text-sm bg-transparent dark:text-gray-300 outline-none"
-						placeholder={$i18n.t('Search')}
 						bind:value={search}
+						class="w-full rounded-r-xl py-1.5 pl-2.5 pr-4 text-sm bg-transparent dark:text-gray-300 outline-none"
 						on:focus={async () => {
 							// TODO: migrate backend for more scalable search mechanism
 							scrollPaginationEnabled.set(false);
 							await chats.set(await getChatList(localStorage.token)); // when searching, load all chats
 							enrichChatsWithContent($chats);
 						}}
+						placeholder={$i18n.t('Search')}
 					/>
 				</div>
 			</div>
 
 			{#if $tags.filter((t) => t.name !== 'pinned').length > 0}
+				<div class="w-full pl-2.5 text-s text-gray-500 dark:text-gray-500 font-medium pb-1.5">
+					{$i18n.t('Tags')}
+				</div>
 				<div class="px-3.5 mb-1 flex gap-0.5 flex-wrap">
 					<button
 						class="px-2.5 py-[1px] text-xs transition {selectedTagName === null
@@ -457,6 +501,7 @@
 									// if the tag we deleted is no longer a valid tag, return to main chat list view
 									await enablePagination();
 								}
+
 								await chats.set(chatIds);
 
 								chatListLoading = false;
@@ -467,11 +512,15 @@
 					{/each}
 				</div>
 			{/if}
-
-			{#if !search && $pinnedChats.length > 0}
-				<div class="pl-2 py-2 flex flex-col space-y-1">
+			<div class="w-full pl-2.5 text-base text-gray-500 dark:text-gray-500 font-medium">
+				{$i18n.t('Chats')}
+			</div>
+			<div
+				class="pl-2 my-2 flex-1 flex flex-col space-y-1 overflow-y-auto scrollbar-hidden h-full max-h-full"
+			>
+				{#if !search && $pinnedChats.length > 0}
 					<div class="">
-						<div class="w-full pl-2.5 text-xs text-gray-500 dark:text-gray-500 font-medium pb-1.5">
+						<div class="w-full pl-2.5 text-xs text-gray-500 dark:text-gray-500 font-medium pb-0.5">
 							{$i18n.t('Pinned')}
 						</div>
 
@@ -497,10 +546,7 @@
 							/>
 						{/each}
 					</div>
-				</div>
-			{/if}
-
-			<div class="pl-2 my-2 flex-1 flex flex-col space-y-1 overflow-y-auto scrollbar-hidden">
+				{/if}
 				{#each filteredChatList as chat, idx}
 					{#if idx === 0 || (idx > 0 && chat.time_range !== filteredChatList[idx - 1].time_range)}
 						<div
@@ -509,24 +555,6 @@
 								: 'pt-5'} pb-0.5"
 						>
 							{$i18n.t(chat.time_range)}
-							<!-- localisation keys for time_range to be recognized from the i18next parser (so they don't get automatically removed):
-							{$i18n.t('Today')}
-							{$i18n.t('Yesterday')}
-							{$i18n.t('Previous 7 days')}
-							{$i18n.t('Previous 30 days')}
-							{$i18n.t('January')}
-							{$i18n.t('February')}
-							{$i18n.t('March')}
-							{$i18n.t('April')}
-							{$i18n.t('May')}
-							{$i18n.t('June')}
-							{$i18n.t('July')}
-							{$i18n.t('August')}
-							{$i18n.t('September')}
-							{$i18n.t('October')}
-							{$i18n.t('November')}
-							{$i18n.t('December')}
-							-->
 						</div>
 					{/if}
 
@@ -566,6 +594,134 @@
 					</Loader>
 				{/if}
 			</div>
+		</div>
+		<div class="w-full pl-2.5 text-base text-gray-500 dark:text-gray-500 font-medium underline">
+			{$i18n.t('Prompts')}
+		</div>
+		<div
+			class="pl-2 my-2 flex-1 flex flex-col space-y-1 overflow-y-auto scrollbar-hidden h-full max-h-full"
+		>
+			{#if checkForPrompts(selected_models)}
+				{#each Object.entries(checkForPrompts(selected_models)) as [modelPrompt, prompts]}
+					<div class="w-full pl-2.5 text-sm text-gray-500 dark:text-gray-500 font-medium pb-0.5">
+						{$i18n.t(`Suggested for model: ${modelPrompt}`)}
+					</div>
+					{#each prompts['prompts'] as prompt}
+						<div
+							style="width: 100%; overflow-wrap: normal; height: fit-content; white-space: normal;"
+						>
+							<button
+								class="flex flex-col flex-1 shrink-0 w-full justify-between px-3 py-2 rounded-xl bg-transparent hover:bg-black/5 dark:hover:bg-white/5 transition group"
+								on:click={async () => {
+									let promptModel = prompts.model;
+									let currentUrl = window.location.href;
+									let modelVal = prompts.model.id;
+									let modelUrl = `/?models=${modelVal}`;
+									let modelSearch = `?models=${modelVal}`;
+									console.log(
+										'Current URL is',
+										currentUrl,
+										'Current models',
+										prompts.model,
+										'Current Trigger',
+										$submitPromptTrigger
+									);
+
+									if (
+										currentUrl.includes('/c/') ||
+										$page.url.pathname === '/' ||
+										$page.url.search === modelSearch
+									) {
+										submitPromptTrigger.set({
+											content: prompt.content,
+											trigger: true,
+											model: prompts.model,
+											isCurrentChat: true
+										});
+									} else {
+										await goto(`/?models=${modelVal}`);
+										await tick();
+
+										submitPromptTrigger.set({
+											content: prompt.content,
+											trigger: true,
+											model: prompts.model,
+											isCurrentChat: false
+										});
+									}
+								}}
+								value={prompt.content}
+							>
+								<div class="flex flex-col text-left">
+									{#if Object.hasOwn(prompt, 'title') && prompt.title[0] !== ''}
+										<div
+											class="  font-medium dark:text-gray-300 dark:group-hover:text-gray-200 transition line-clamp-1"
+										>
+											{prompt.title}
+										</div>
+										<div class="text-xs text-gray-500 font-normal line-clamp-1">
+											{prompt.title}
+										</div>
+									{:else}
+										<div
+											class="  font-medium dark:text-gray-300 dark:group-hover:text-gray-200 transition line-clamp-1"
+										>
+											{prompt.content}
+										</div>
+
+										<div class="text-xs text-gray-500 font-normal line-clamp-1">Prompt</div>
+									{/if}
+								</div>
+							</button>
+						</div>
+					{/each}
+				{/each}
+			{/if}
+			<div class="w-full pl-2.5 text-sm text-gray-500 dark:text-gray-500 font-medium pb-0.5">
+				{$i18n.t('Suggested')}
+			</div>
+			{#each $config.default_prompt_suggestions as defaultPrompts}
+				<button
+					class="flex flex-col flex-1 shrink-0 w-full justify-between px-3 py-2 rounded-xl bg-transparent hover:bg-black/5 dark:hover:bg-white/5 transition group"
+					on:click={async () => {
+						let currentUrl = window.location.href;
+						console.log('Prompt is', defaultPrompts);
+						console.log(currentUrl);
+						if (currentUrl.includes('/c/') || $page.url.pathname === '/') {
+							submitPromptTrigger.set({
+								content: defaultPrompts.content,
+								trigger: true,
+								model: null,
+								isCurrentChat: true
+							});
+						} else {
+							await goto(`/`);
+							await tick();
+						}
+					}}
+				>
+					<div class="flex flex-col text-left">
+						{#if defaultPrompts.title && defaultPrompts.title[0] !== ''}
+							<div
+								class="  font-medium dark:text-gray-300 dark:group-hover:text-gray-200 transition line-clamp-1"
+							>
+								{defaultPrompts.title[0]}
+							</div>
+							<div class="text-xs text-gray-500 font-normal line-clamp-1">
+								{defaultPrompts.title[1]}
+							</div>
+						{:else}
+							<div
+								class="  font-medium dark:text-gray-300 dark:group-hover:text-gray-200 transition line-clamp-1"
+							>
+								{defaultPrompts.content}
+							</div>
+
+							<div class="text-xs text-gray-500 font-normal line-clamp-1">Prompt</div>
+						{/if}
+					</div>
+				</button>
+			{/each}
 		</div>
 
 		<div class="px-2.5 pb-safe-bottom">
@@ -609,6 +765,7 @@
 	.scrollbar-hidden:hover::-webkit-scrollbar-thumb {
 		visibility: visible;
 	}
+
 	.scrollbar-hidden::-webkit-scrollbar-thumb {
 		visibility: hidden;
 	}

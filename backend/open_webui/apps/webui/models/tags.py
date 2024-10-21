@@ -94,7 +94,10 @@ class TagTable:
             tag = await db.execute(
                 select(Tag).where(Tag.name == name, Tag.user_id == user_id)
             )
-            return TagModel.model_validate(tag.scalar())
+            tag = tag.scalar()
+            if tag:
+                return TagModel.model_validate(tag)
+
 
     async def add_tag_to_chat(
         self, user_id: str, form_data: ChatIdTagForm
@@ -125,11 +128,12 @@ class TagTable:
 
     async def get_tags_by_user_id(self, user_id: str) -> List[TagModel]:
         async with get_db() as db:
-            tags = await db.execute(
-                select(Tag).where(Tag.user_id == user_id).order_by(Tag.name.desc())
+
+            child_tags = await db.execute(
+                select(ChatIdTag).where(ChatIdTag.user_id == user_id).order_by(ChatIdTag.timestamp.desc())
             )
 
-            tag_names = [chat_id_tag.tag_name for chat_id_tag in tags.scalars()]
+            tag_names = [chat_id_tag.tag_name for chat_id_tag in child_tags.scalars()]
             tag_names = await db.execute(select(Tag).where(Tag.name.in_(tag_names)))
             return [TagModel.model_validate(tag) for tag in tag_names.scalars()]
 

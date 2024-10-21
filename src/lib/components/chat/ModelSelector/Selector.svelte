@@ -12,7 +12,14 @@
 
 	import { deleteModel, getOllamaVersion, pullModel } from '$lib/apis/ollama';
 
-	import { user, MODEL_DOWNLOAD_POOL, models, mobile, temporaryChatEnabled } from '$lib/stores';
+	import {
+		user,
+		MODEL_DOWNLOAD_POOL,
+		models,
+		mobile,
+		temporaryChatEnabled,
+		submitPromptTrigger
+	} from '$lib/stores';
 	import { toast } from 'svelte-sonner';
 	import { capitalizeFirstLetter, sanitizeResponseContent, splitStream } from '$lib/utils';
 	import { getModels } from '$lib/apis';
@@ -21,6 +28,7 @@
 	import Switch from '$lib/components/common/Switch.svelte';
 	import ChatBubbleOval from '$lib/components/icons/ChatBubbleOval.svelte';
 	import { goto } from '$app/navigation';
+	import { modelsSelected } from '$lib/stores';
 
 	const i18n = getContext('i18n');
 	const dispatch = createEventDispatcher();
@@ -44,8 +52,58 @@
 
 	let show = false;
 
+	const checkModel = (modelsToCheck: [], checkVal: string): boolean => {
+		let uniq = modelsToCheck.every((item) => {
+			return item === checkVal;
+		});
+		return uniq;
+		console.log('Final Models', uniq);
+	};
+
 	let selectedModel = '';
-	$: selectedModel = items.find((item) => item.value === value) ?? '';
+	$: {
+		selectedModel = items.find((item) => item.value === value) ?? '';
+
+		if (selectedModel !== '') {
+			modelsSelected.update((store) => {
+				if (store) {
+					if (store.length === 0) {
+						store = [
+							{
+								label: selectedModel.label,
+								value: selectedModel.value,
+								model: selectedModel.model
+							}
+						];
+
+						return store;
+					} else if (store.length >= 1) {
+						let modelNames = store.map((item) => item.label);
+						if (checkModel(modelNames, selectedModel.label) === true) {
+							return store;
+						} else {
+							store.push({
+								label: selectedModel.label,
+								value: selectedModel.value,
+								model: selectedModel.model
+							});
+						}
+					}
+					return store;
+				} else {
+					store = [
+						{
+							label: selectedModel.label,
+							value: selectedModel.value,
+							model: selectedModel.model
+						}
+					];
+
+					return store;
+				}
+			});
+		}
+	}
 
 	let searchValue = '';
 	let ollamaVersion = null;

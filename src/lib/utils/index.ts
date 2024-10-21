@@ -3,6 +3,8 @@ import sha256 from 'js-sha256';
 
 import { WEBUI_BASE_URL } from '$lib/constants';
 import { TTS_RESPONSE_SPLIT } from '$lib/types';
+import { page } from '$app/stores';
+import { config, settings, models } from '$lib/stores';
 
 //////////////////////////
 // Helper functions

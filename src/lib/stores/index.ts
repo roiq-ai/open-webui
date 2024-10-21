@@ -51,8 +51,15 @@ export const showCallOverlay = writable(false);
 export const temporaryChatEnabled = writable(false);
 export const scrollPaginationEnabled = writable(false);
 export const currentChatPage = writable(1);
-
+export const modelsSelected = writable<SelectedModel[]>([]);
+export const submitPromptTrigger = writable({
+	trigger: false,
+	content: '',
+	model: null,
+	isCurrentChat: false
+});
 export type Model = OpenAIModel | OllamaModel;
+export type SelectedModel = Model;
 
 type BaseModel = {
 	id: string;

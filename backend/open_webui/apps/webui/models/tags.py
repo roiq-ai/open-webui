@@ -98,7 +98,6 @@ class TagTable:
             if tag:
                 return TagModel.model_validate(tag)
 
-
     async def add_tag_to_chat(
         self, user_id: str, form_data: ChatIdTagForm
     ) -> Optional[ChatIdTagModel]:
@@ -130,7 +129,9 @@ class TagTable:
         async with get_db() as db:
 
             child_tags = await db.execute(
-                select(ChatIdTag).where(ChatIdTag.user_id == user_id).order_by(ChatIdTag.timestamp.desc())
+                select(ChatIdTag)
+                .where(ChatIdTag.user_id == user_id)
+                .order_by(ChatIdTag.timestamp.desc())
             )
 
             tag_names = [chat_id_tag.tag_name for chat_id_tag in child_tags.scalars()]

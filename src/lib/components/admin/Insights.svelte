@@ -6,7 +6,7 @@
 	const i18n = getContext('i18n');
 	import { getDAU } from '$lib/apis/users';
 	import { data } from 'autoprefixer';
-
+	let loading = true;
 	let chartCanvas;
 
 	onMount(async () => {

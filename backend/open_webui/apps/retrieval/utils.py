@@ -193,7 +193,6 @@ def query_collection(
                 if result:
                     results.append(result.model_dump())
 
-
             except Exception as e:
                 log.exception(f"Error when querying the collection: {e}")
         else:

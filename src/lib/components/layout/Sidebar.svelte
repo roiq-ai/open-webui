@@ -344,9 +344,15 @@
 				}}
 			>
 				<div class="self-center mx-1.5">
-					<img crossorigin="anonymous" src="/static/favicon.png" class="size-6 -translate-x-1.5 rounded-full"/>
+					<img
+						crossorigin="anonymous"
+						src="/static/favicon.png"
+						class="size-6 -translate-x-1.5 rounded-full"
+					/>
 				</div>
-				<div class=" self-center font-medium text-sm text-gray-850 dark:text-white font-primary max-h-fit">
+				<div
+					class=" self-center font-medium text-sm text-gray-850 dark:text-white font-primary max-h-fit"
+				>
 					{$i18n.t('New Chat')}
 				</div>
 				<div class="self-center ml-auto">

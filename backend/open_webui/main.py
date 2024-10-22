@@ -95,7 +95,8 @@ from open_webui.env import (
     WEBUI_SESSION_COOKIE_SAME_SITE,
     WEBUI_SESSION_COOKIE_SECURE,
     WEBUI_URL,
-    WEBUI_AUTH, FRONTEND_BUILD_DIR,
+    WEBUI_AUTH,
+    FRONTEND_BUILD_DIR,
 )
 from fastapi import (
     Depends,
@@ -839,7 +840,7 @@ app.add_middleware(PipelineMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["localhost","*"],
+    allow_origins=["localhost", "*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

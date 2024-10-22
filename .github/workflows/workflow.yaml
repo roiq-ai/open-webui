@@ -54,9 +54,14 @@ jobs:
         export RYE_INSTALL_OPTION="--yes"
         curl -sSf https://rye.astral.sh/get  | bash
         source "$HOME/.rye/env"
-        rye version -b minor
+        branch="$(git rev-parse --abbrev-ref HEAD)"
+        if [[ "$branch" == "roiq-main" ]]; then
+          VERSION=$(rye version --bump minor)
+        else
+          VERSION=$(rye version --bump patch)
+        fi
         echo Version: $(rye version)
-        echo "VERSION=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        echo "VERSION=$(rye version)" >> $GITHUB_OUTPUT
 
 
     - name: Login to Amazon ECR

@@ -124,9 +124,7 @@
 										<img
 											crossorigin="anonymous"
 											src={model?.info?.meta?.profile_image_url ??
-												($i18n.language === 'dg-DG'
-													? `/doge.png`
-													: `${WEBUI_BASE_URL}/static/favicon.png`)}
+												($i18n.language === 'dg-DG' ? `/doge.png` : `./static/favicon.png`)}
 											class=" size-[2.5rem] rounded-full border-[1px] border-gray-200 dark:border-none"
 											alt="logo"
 											draggable="false"
@@ -209,18 +207,6 @@
 						}}
 					/>
 				</div>
-			</div>
-		</div>
-		<div class="mx-auto max-w-2xl font-primary" in:fade={{ duration: 200, delay: 200 }}>
-			<div class="mx-5">
-				<Suggestions
-					suggestionPrompts={models[selectedModelIdx]?.info?.meta?.suggestion_prompts ??
-						$config?.default_prompt_suggestions ??
-						[]}
-					on:select={(e) => {
-						selectSuggestionPrompt(e.detail);
-					}}
-				/>
 			</div>
 		</div>
 	</div>

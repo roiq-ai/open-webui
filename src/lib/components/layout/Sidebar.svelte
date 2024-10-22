@@ -518,7 +518,7 @@
 					{/each}
 				</div>
 			{/if}
-			<div class="w-full pl-2.5 text-base text-gray-500 dark:text-gray-500 font-medium">
+			<div class="w-full pl-2.5 text-base text-gray-500 dark:text-gray-500 font-medium underline">
 				{$i18n.t('Chats')}
 			</div>
 			<div

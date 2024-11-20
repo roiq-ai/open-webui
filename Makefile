@@ -1,9 +1,46 @@
+RYE := $(shell command -v rye 2> /dev/null)
+BACKEND := $(shell pwd)/backend
+AWS_ACCOUNT=875668830489
+AWS_REGION=us-east-1
+ECR := 875668830489.dkr.ecr.us-east-1.amazonaws.com/roiqai-service
+RELAY_ECR := 875668830489.dkr.ecr.us-east-1.amazonaws.com/roiqai-relay
+TAG := $(shell rye version)
 
 ifneq ($(shell which docker-compose 2>/dev/null),)
     DOCKER_COMPOSE := docker-compose
 else
     DOCKER_COMPOSE := docker compose
 endif
+
+bump-version:
+	$(RYE) version -b minor
+
+format:
+	$(RYE) run  black .
+	$(RYE) run autoflake . --recursive --remove-unused-variables --in-place \
+	--ignore-init-module-imports --remove-all-unused-imports --exclude ".venv/|/venv/"
+
+.PHONY: login
+login:
+	aws ecr get-login-password --region $(AWS_REGION) | docker login --username AWS --password-stdin $(AWS_ACCOUNT).dkr.ecr.$(AWS_REGION).amazonaws.com
+
+.PHONY: build
+build:
+	docker build -t open-webui .  --platform linux/amd64
+
+.PHONY: build-relay
+build-relay:
+	docker build -t roiq-relay -f ./relay-server/Dockerfile ./relay-server  --platform linux/amd64
+
+.PHONY: push-relay
+push-relay: login build-relay
+	docker tag roiq-relay ${RELAY_ECR}:${TAG}
+	docker push ${RELAY_ECR}:${TAG}
+
+.PHONY: push
+push: login build
+	docker tag open-webui ${ECR}:${TAG}
+	docker push ${ECR}:${TAG}
 
 install:
 	$(DOCKER_COMPOSE) up -d
@@ -31,3 +68,6 @@ update:
 	$(DOCKER_COMPOSE) up --build -d
 	$(DOCKER_COMPOSE) start
 
+.PHONY: test
+test:
+	$(RYE) run pytest $(BACKEND)/test

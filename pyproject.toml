@@ -1,6 +1,6 @@
 [project]
 name = "open-webui"
-description = "Open WebUI"
+description = "IQ"
 authors = [
     { name = "Timothy Jaeryang Baek", email = "tim@openwebui.com" }
 ]
@@ -118,34 +118,7 @@ classifiers = [
 [project.scripts]
 open-webui = "open_webui:app"
 
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
 [tool.rye]
 managed = true
 dev-dependencies = []
 
-[tool.hatch.metadata]
-allow-direct-references = true
-
-[tool.hatch.version]
-path = "package.json"
-pattern = '"version":\s*"(?P<version>[^"]+)"'
-
-[tool.hatch.build.hooks.custom]  # keep this for reading hooks from `hatch_build.py`
-
-[tool.hatch.build.targets.wheel]
-sources = ["backend"]
-exclude = [
-    ".dockerignore",
-    ".gitignore",
-    ".webui_secret_key",
-    "dev.sh",
-    "requirements.txt",
-    "start.sh",
-    "start_windows.bat",
-    "webui.db",
-    "chroma.sqlite3",
-]
-force-include = { "CHANGELOG.md" = "open_webui/CHANGELOG.md", build = "open_webui/frontend" }

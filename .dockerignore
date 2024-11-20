@@ -18,3 +18,7 @@ uploads
 **/*.db
 _test
 backend/data/*
+/ignore/
+/relay-server/
+/infrastructure/
+/.ruff_cache

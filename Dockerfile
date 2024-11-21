@@ -37,7 +37,7 @@ ENV APP_BUILD_HASH=${BUILD_HASH}
 RUN npm run build
 
 ######## WebUI backend ########
-FROM python:3.11-buster as base
+FROM python:3.11-bookworm as base
 USER root
 
 # Use args
@@ -123,8 +123,8 @@ RUN pip3 install uv && \
     uv pip install --system -r requirements.lock && \
     python -c "import os; from sentence_transformers import SentenceTransformer; SentenceTransformer(os.environ['RAG_EMBEDDING_MODEL'], device='cpu')" && \
     python -c "import os; from faster_whisper import WhisperModel; WhisperModel(os.environ['WHISPER_MODEL'], device='cpu', compute_type='int8', download_root=os.environ['WHISPER_MODEL_DIR'])"; \
-    fi; \
-    chown -R $UID:$GID /app/backend/data/
+    fi;
+
 
 
 

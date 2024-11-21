@@ -11,6 +11,9 @@ import sqlalchemy as sa
 from sqlalchemy.sql import table, column, select
 import json
 
+from open_webui.apps.webui.models.knowledge import Knowledge
+from open_webui.migrations.util import get_existing_tables
+
 
 revision = "6a39f3d8e55c"
 down_revision = "c0fbf31ca0db"
@@ -21,17 +24,20 @@ depends_on = None
 def upgrade():
     # Creating the 'knowledge' table
     print("Creating knowledge table")
-    knowledge_table = op.create_table(
-        "knowledge",
-        sa.Column("id", sa.Text(), primary_key=True),
-        sa.Column("user_id", sa.Text(), nullable=False),
-        sa.Column("name", sa.Text(), nullable=False),
-        sa.Column("description", sa.Text(), nullable=True),
-        sa.Column("data", sa.JSON(), nullable=True),
-        sa.Column("meta", sa.JSON(), nullable=True),
-        sa.Column("created_at", sa.BigInteger(), nullable=False),
-        sa.Column("updated_at", sa.BigInteger(), nullable=True),
-    )
+    if "knowledge" in get_existing_tables():
+        knowledge_table = Knowledge.__table__
+    else:
+            knowledge_table = op.create_table(
+            "knowledge",
+            sa.Column("id", sa.Text(), primary_key=True),
+            sa.Column("user_id", sa.Text(), nullable=False),
+            sa.Column("name", sa.Text(), nullable=False),
+            sa.Column("description", sa.Text(), nullable=True),
+            sa.Column("data", sa.JSON(), nullable=True),
+            sa.Column("meta", sa.JSON(), nullable=True),
+            sa.Column("created_at", sa.BigInteger(), nullable=False),
+            sa.Column("updated_at", sa.BigInteger(), nullable=True),
+        )
 
     print("Migrating data from document table to knowledge table")
     # Representation of the existing 'document' table

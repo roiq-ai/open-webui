@@ -14,7 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Initialize Build
-      if: ${{ GITHUB_BASE_REF == 'roiq-main' }}
       id: slack-initialize
       uses: slackapi/slack-github-action@v1.27.0
       with:
@@ -100,7 +99,6 @@ jobs:
 
     - name: Finish workflow
       id: slack-finish
-      if: ${{ GITHUB_BASE_REF == 'roiq-main' }}
       uses: slackapi/slack-github-action@v1.27.0
       with:
         channel-id: roiq-ai-releases

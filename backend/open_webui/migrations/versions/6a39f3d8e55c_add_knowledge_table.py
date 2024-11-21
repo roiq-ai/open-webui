@@ -14,7 +14,6 @@ import json
 from open_webui.apps.webui.models.knowledge import Knowledge
 from open_webui.migrations.util import get_existing_tables
 
-
 revision = "6a39f3d8e55c"
 down_revision = "c0fbf31ca0db"
 branch_labels = None
@@ -27,7 +26,7 @@ def upgrade():
     if "knowledge" in get_existing_tables():
         knowledge_table = Knowledge.__table__
     else:
-            knowledge_table = op.create_table(
+        knowledge_table = op.create_table(
             "knowledge",
             sa.Column("id", sa.Text(), primary_key=True),
             sa.Column("user_id", sa.Text(), nullable=False),
@@ -38,6 +37,7 @@ def upgrade():
             sa.Column("created_at", sa.BigInteger(), nullable=False),
             sa.Column("updated_at", sa.BigInteger(), nullable=True),
         )
+
 
     print("Migrating data from document table to knowledge table")
     # Representation of the existing 'document' table

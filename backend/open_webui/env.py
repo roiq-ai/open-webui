@@ -263,7 +263,7 @@ if os.path.exists(f"{DATA_DIR}/ollama.db"):
 else:
     pass
 
-DATABASE_URL = f"postgres://postgres:postgres@localhost:5432/owebui"
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 # Replace the postgres:// with postgresql://
 if "postgres://" in DATABASE_URL:

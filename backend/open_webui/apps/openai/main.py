@@ -3,7 +3,7 @@ import hashlib
 import json
 import logging
 from pathlib import Path
-from typing import Literal, Optional, overload
+from typing import Literal, Optional, overload, List, Any, Tuple
 
 import aiohttp
 import requests
@@ -250,7 +250,7 @@ def merge_models_lists(model_lists):
     return merged_list
 
 
-async def get_all_models_responses() -> list:
+async def get_all_models_responses() -> list[Any] | tuple[Any]:
     if not app.state.config.ENABLE_OPENAI_API:
         return []
 
@@ -315,8 +315,6 @@ async def get_all_models_responses() -> list:
             if prefix_id:
                 for model in response["data"]:
                     model["id"] = f"{prefix_id}.{model['id']}"
-
-    log.debug(f"get_all_models:responses() {responses}")
 
     return responses
 

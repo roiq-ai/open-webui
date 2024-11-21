@@ -335,7 +335,7 @@ async def get_all_models() -> dict[str, list]:
         return None
 
     models = {"data": merge_models_lists(map(extract_data, responses))}
-    log.debug(f"models: {models}")
+
 
     return models
 

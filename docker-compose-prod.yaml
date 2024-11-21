@@ -23,7 +23,7 @@ services:
 
   open-webui-email:
 
-    image: 875668830489.dkr.ecr.us-east-1.amazonaws.com/roiqai-service:0.58.0
+    image: 875668830489.dkr.ecr.us-east-1.amazonaws.com/roiqai-service:0.2.0
     ports:
       - "3002:8080"
     volumes:
@@ -41,7 +41,7 @@ services:
 
 
   open-webui:
-    image: 875668830489.dkr.ecr.us-east-1.amazonaws.com/roiqai-service:0.52.0
+    image: 875668830489.dkr.ecr.us-east-1.amazonaws.com/roiqai-service:0.2.0
     deploy:
       resources:
         reservations:

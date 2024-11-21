@@ -113,7 +113,7 @@ classifiers = [
     "Topic :: Communications :: Chat",
     "Topic :: Multimedia",
 ]
-version = "0.2.0"
+version = "1.0.0"
 
 [project.scripts]
 open-webui = "open_webui:app"

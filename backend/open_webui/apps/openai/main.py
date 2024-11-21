@@ -464,9 +464,7 @@ async def verify_connection(
             # ClientError covers all aiohttp requests issues
             log.exception(f"Client error: {str(e)}")
             # Handle aiohttp-specific connection issues, timeout etc.
-            raise HTTPException(
-                status_code=500, detail="IQ: Server Connection Error"
-            )
+            raise HTTPException(status_code=500, detail="IQ: Server Connection Error")
         except Exception as e:
             log.exception(f"Unexpected error: {e}")
             # Generic error handler in case parsing JSON or other steps fail

@@ -71,7 +71,10 @@ def handle_peewee_migration(DATABASE_URL):
         assert db.is_closed(), "Database connection is still open."
 
 
-
+try:
+    handle_peewee_migration(DATABASE_URL)
+except Exception:
+    pass
 
 SQLALCHEMY_DATABASE_URL = DATABASE_URL
 if "sqlite" in SQLALCHEMY_DATABASE_URL:

@@ -21,17 +21,17 @@ depends_on = None
 def upgrade():
     # Creating the 'knowledge' table
     print("Creating knowledge table")
-    # knowledge_table = op.create_table(
-    #     "knowledge",
-    #     sa.Column("id", sa.Text(), primary_key=True),
-    #     sa.Column("user_id", sa.Text(), nullable=False),
-    #     sa.Column("name", sa.Text(), nullable=False),
-    #     sa.Column("description", sa.Text(), nullable=True),
-    #     sa.Column("data", sa.JSON(), nullable=True),
-    #     sa.Column("meta", sa.JSON(), nullable=True),
-    #     sa.Column("created_at", sa.BigInteger(), nullable=False),
-    #     sa.Column("updated_at", sa.BigInteger(), nullable=True),
-    # )
+    knowledge_table = op.create_table(
+        "knowledge",
+        sa.Column("id", sa.Text(), primary_key=True),
+        sa.Column("user_id", sa.Text(), nullable=False),
+        sa.Column("name", sa.Text(), nullable=False),
+        sa.Column("description", sa.Text(), nullable=True),
+        sa.Column("data", sa.JSON(), nullable=True),
+        sa.Column("meta", sa.JSON(), nullable=True),
+        sa.Column("created_at", sa.BigInteger(), nullable=False),
+        sa.Column("updated_at", sa.BigInteger(), nullable=True),
+    )
 
     print("Migrating data from document table to knowledge table")
     # Representation of the existing 'document' table

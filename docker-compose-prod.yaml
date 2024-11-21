@@ -41,7 +41,7 @@ services:
 
 
   open-webui:
-    image: 875668830489.dkr.ecr.us-east-1.amazonaws.com/roiqai-service:0.2.0
+    image: 875668830489.dkr.ecr.us-east-1.amazonaws.com/roiqai-service:1.2.0
     deploy:
       resources:
         reservations:

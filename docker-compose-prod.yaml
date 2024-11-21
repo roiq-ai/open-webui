@@ -23,7 +23,7 @@ services:
 
   open-webui-email:
 
-    image: 875668830489.dkr.ecr.us-east-1.amazonaws.com/roiqai-service:0.2.0
+    image: 875668830489.dkr.ecr.us-east-1.amazonaws.com/roiqai-service:1.1.0
     ports:
       - "3002:8080"
     volumes:
@@ -50,7 +50,7 @@ services:
     ports:
       - "3000:8080"
     volumes:
-      - ./open-web-ui:/app/backend/data/
+      - ./open-web-ui-dev/:/app/backend/data/
     env_file: dev.env
 
     stdin_open: true

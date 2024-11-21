@@ -1,7 +1,7 @@
 import logging
 import os
 import uuid
-from typing import Optional, Union
+from typing import Optional, Union, Dict, List, Any
 
 import asyncio
 import requests
@@ -89,7 +89,7 @@ def query_doc_with_hybrid_search(
     k: int,
     reranking_function,
     r: float,
-) -> dict:
+) -> dict[str, list[list[Any | None]] | list[list[str]] | list[list[dict]]] | None:
     try:
         result = VECTOR_DB_CLIENT.get(collection_name=collection_name)
 
@@ -126,11 +126,15 @@ def query_doc_with_hybrid_search(
             "metadatas": [[d.metadata for d in result]],
         }
 
-        log.info(
-            "query_doc_with_hybrid_search:result "
-            + f'{result["metadatas"]} {result["distances"]}'
-        )
-        return result
+        if result:
+            log.info(
+                "query_doc_with_hybrid_search:result "
+                + f'{result["metadatas"]} {result["distances"]}'
+            )
+
+            return result
+        else:
+            return None
     except Exception as e:
         raise e
 

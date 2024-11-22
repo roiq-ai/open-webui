@@ -9,6 +9,8 @@ from typing import Optional, Union
 from urllib.parse import urlparse
 
 import aiohttp
+from aiocache import cached
+
 import requests
 from open_webui.apps.webui.models.models import Models
 from open_webui.config import (
@@ -116,7 +118,9 @@ async def verify_connection(
             # ClientError covers all aiohttp requests issues
             log.exception(f"Client error: {str(e)}")
             # Handle aiohttp-specific connection issues, timeout etc.
-            raise HTTPException(status_code=500, detail="IQ: Server Connection Error")
+            raise HTTPException(
+                status_code=500, detail="Open WebUI: Server Connection Error"
+            )
         except Exception as e:
             log.exception(f"Unexpected error: {e}")
             # Generic error handler in case parsing JSON or other steps fail
@@ -223,7 +227,7 @@ async def post_streaming_url(
             return res
 
     except Exception as e:
-        error_detail = "IQ: Server Connection Error"
+        error_detail = "Open WebUI: Server Connection Error"
         if r is not None:
             try:
                 res = await r.json()
@@ -254,6 +258,7 @@ def merge_models_lists(model_lists):
     return list(merged_models.values())
 
 
+@cached(ttl=3)
 async def get_all_models():
     log.info("get_all_models()")
     if app.state.config.ENABLE_OLLAMA_API:
@@ -292,8 +297,6 @@ async def get_all_models():
                 if prefix_id:
                     for model in response.get("models", []):
                         model["model"] = f"{prefix_id}.{model['model']}"
-
-        print(responses)
 
         models = {
             "models": merge_models_lists(
@@ -336,7 +339,7 @@ async def get_ollama_tags(
             models = r.json()
         except Exception as e:
             log.exception(e)
-            error_detail = "IQ: Server Connection Error"
+            error_detail = "Open WebUI: Server Connection Error"
             if r is not None:
                 try:
                     res = r.json()
@@ -406,7 +409,7 @@ async def get_ollama_versions(url_idx: Optional[int] = None):
                 return r.json()
             except Exception as e:
                 log.exception(e)
-                error_detail = "IQ: Server Connection Error"
+                error_detail = "Open WebUI: Server Connection Error"
                 if r is not None:
                     try:
                         res = r.json()
@@ -544,7 +547,7 @@ async def copy_model(
         return True
     except Exception as e:
         log.exception(e)
-        error_detail = "IQ: Server Connection Error"
+        error_detail = "Open WebUI: Server Connection Error"
         if r is not None:
             try:
                 res = r.json()
@@ -602,7 +605,7 @@ async def delete_model(
         return True
     except Exception as e:
         log.exception(e)
-        error_detail = "IQ: Server Connection Error"
+        error_detail = "Open WebUI: Server Connection Error"
         if r is not None:
             try:
                 res = r.json()
@@ -651,7 +654,7 @@ async def show_model_info(form_data: ModelNameForm, user=Depends(get_verified_us
         return r.json()
     except Exception as e:
         log.exception(e)
-        error_detail = "IQ: Server Connection Error"
+        error_detail = "Open WebUI: Server Connection Error"
         if r is not None:
             try:
                 res = r.json()
@@ -753,7 +756,7 @@ async def generate_ollama_embeddings(
             raise Exception("Something went wrong :/")
     except Exception as e:
         log.exception(e)
-        error_detail = "IQ: Server Connection Error"
+        error_detail = "Open WebUI: Server Connection Error"
         if r is not None:
             try:
                 res = r.json()
@@ -820,7 +823,7 @@ async def generate_ollama_batch_embeddings(
             raise Exception("Something went wrong :/")
     except Exception as e:
         log.exception(e)
-        error_detail = "IQ: Server Connection Error"
+        error_detail = "Open WebUI: Server Connection Error"
         if r is not None:
             try:
                 res = r.json()
@@ -835,6 +838,7 @@ async def generate_ollama_batch_embeddings(
 class GenerateCompletionForm(BaseModel):
     model: str
     prompt: str
+    suffix: Optional[str] = None
     images: Optional[list[str]] = None
     format: Optional[str] = None
     options: Optional[dict] = None
@@ -1114,7 +1118,7 @@ async def get_openai_models(
             ]
         except Exception as e:
             log.exception(e)
-            error_detail = "IQ: Server Connection Error"
+            error_detail = "Open WebUI: Server Connection Error"
             if r is not None:
                 try:
                     res = r.json()

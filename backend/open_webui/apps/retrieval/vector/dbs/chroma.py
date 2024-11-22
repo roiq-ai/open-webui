@@ -58,6 +58,13 @@ class ChromaClient:
         # Delete the collection based on the collection name.
         return self.client.delete_collection(name=collection_name)
 
+    def query_texts(self, collection_name: str, query: str, limit=50):
+        # Query the items from the collection based on the query text.
+        collection = self.client.get_collection(name=collection_name)
+        if collection:
+            result = collection.query(query_texts=[query], n_results=limit)
+            return result
+
     def search(
         self, collection_name: str, vectors: list[list[float | int]], limit: int
     ) -> Optional[SearchResult]:

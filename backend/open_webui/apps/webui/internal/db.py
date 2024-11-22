@@ -68,6 +68,7 @@ def handle_peewee_migration(DATABASE_URL):
         # Assert if db connection has been closed
         pass
 
+
 handle_peewee_migration(DATABASE_URL)
 
 SQLALCHEMY_DATABASE_URL = DATABASE_URL

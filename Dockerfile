@@ -80,8 +80,16 @@ ENV RAG_EMBEDDING_MODEL="$USE_EMBEDDING_MODEL_DOCKER" \
     RAG_RERANKING_MODEL="$USE_RERANKING_MODEL_DOCKER" \
     SENTENCE_TRANSFORMERS_HOME="/app/backend/data/cache/embedding/models"
 
+## Tiktoken model settings ##
+ENV TIKTOKEN_ENCODING_NAME="cl100k_base" \
+    TIKTOKEN_CACHE_DIR="/app/backend/data/cache/tiktoken"
+
 ## Hugging Face download cache ##
 ENV HF_HOME="/app/backend/data/cache/embedding/models"
+
+## Torch Extensions ##
+# ENV TORCH_EXTENSIONS_DIR="/.cache/torch_extensions"
+
 #### Other models ##########################################################
 
 WORKDIR /app/backend
@@ -107,9 +115,9 @@ RUN ./bootstrap.sh
 
 
 # install python dependencies
-COPY --chown=$UID:$GID ./requirements.lock ./requirements.lock
-COPY --chown=$UID:$GID ./pyproject.toml ./pyproject.toml
-COPY --chown=$UID:$GID ./package.json ./package.json
+COPY  ./requirements.lock ./requirements.lock
+COPY  ./pyproject.toml ./pyproject.toml
+COPY  ./package.json ./package.json
 
 RUN pip3 install uv && \
     if [ "$USE_CUDA" = "true" ]; then \
@@ -132,20 +140,19 @@ RUN pip3 install uv && \
 # COPY --from=build /app/onnx /root/.cache/chroma/onnx_models/all-MiniLM-L6-v2/onnx
 
 # copy built frontend files
-COPY --chown=$UID:$GID --from=build /app/build /app/build
-COPY --chown=$UID:$GID --from=build /app/CHANGELOG.md /app/CHANGELOG.md
-COPY --chown=$UID:$GID --from=build /app/package.json /app/package.json
+COPY  --from=build /app/build /app/build
+COPY  --from=build /app/CHANGELOG.md /app/CHANGELOG.md
+COPY  --from=build /app/package.json /app/package.json
 
 # copy backend files
-COPY --chown=$UID:$GID ./backend .
+COPY  ./backend .
 
 EXPOSE 8080
 
 HEALTHCHECK CMD curl --silent --fail http://localhost:${PORT:-8080}/health | jq -ne 'input.status == true' || exit 1
 
-USER $UID:$GID
-
 ARG BUILD_HASH
 ENV WEBUI_BUILD_VERSION=${BUILD_HASH}
+ENV DOCKER=true
 
 CMD [ "bash", "start.sh"]

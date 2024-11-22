@@ -3,10 +3,13 @@ import hashlib
 import json
 import logging
 from pathlib import Path
-from typing import Literal, Optional, overload, List, Any, Tuple
+from typing import Literal, Optional, overload
 
 import aiohttp
+from aiocache import cached
 import requests
+
+
 from open_webui.apps.webui.models.models import Models
 from open_webui.config import (
     CACHE_DIR,
@@ -145,7 +148,7 @@ async def speech(request: Request, user=Depends(get_verified_user)):
         headers["Content-Type"] = "application/json"
         if "openrouter.ai" in app.state.config.OPENAI_API_BASE_URLS[idx]:
             headers["HTTP-Referer"] = "https://openwebui.com/"
-            headers["X-Title"] = "IQ"
+            headers["X-Title"] = "Open WebUI"
         if ENABLE_FORWARD_USER_INFO_HEADERS:
             headers["X-OpenWebUI-User-Name"] = user.name
             headers["X-OpenWebUI-User-Id"] = user.id
@@ -175,7 +178,7 @@ async def speech(request: Request, user=Depends(get_verified_user)):
 
         except Exception as e:
             log.exception(e)
-            error_detail = "IQ: Server Connection Error"
+            error_detail = "Open WebUI: Server Connection Error"
             if r is not None:
                 try:
                     res = r.json()
@@ -250,7 +253,7 @@ def merge_models_lists(model_lists):
     return merged_list
 
 
-async def get_all_models_responses() -> list[Any] | tuple[Any]:
+async def get_all_models_responses() -> list:
     if not app.state.config.ENABLE_OPENAI_API:
         return []
 
@@ -302,6 +305,8 @@ async def get_all_models_responses() -> list[Any] | tuple[Any]:
                     }
 
                     tasks.append(asyncio.ensure_future(asyncio.sleep(0, model_list)))
+            else:
+                tasks.append(asyncio.ensure_future(asyncio.sleep(0, None)))
 
     responses = await asyncio.gather(*tasks)
 
@@ -313,12 +318,17 @@ async def get_all_models_responses() -> list[Any] | tuple[Any]:
             prefix_id = api_config.get("prefix_id", None)
 
             if prefix_id:
-                for model in response["data"]:
+                for model in (
+                    response if isinstance(response, list) else response.get("data", [])
+                ):
                     model["id"] = f"{prefix_id}.{model['id']}"
+
+    log.debug(f"get_all_models:responses() {responses}")
 
     return responses
 
 
+@cached(ttl=3)
 async def get_all_models() -> dict[str, list]:
     log.info("get_all_models()")
 
@@ -335,7 +345,7 @@ async def get_all_models() -> dict[str, list]:
         return None
 
     models = {"data": merge_models_lists(map(extract_data, responses))}
-
+    log.debug(f"models: {models}")
 
     return models
 
@@ -404,7 +414,7 @@ async def get_models(url_idx: Optional[int] = None, user=Depends(get_verified_us
                 log.exception(f"Client error: {str(e)}")
                 # Handle aiohttp-specific connection issues, timeout etc.
                 raise HTTPException(
-                    status_code=500, detail="IQ: Server Connection Error"
+                    status_code=500, detail="Open WebUI: Server Connection Error"
                 )
             except Exception as e:
                 log.exception(f"Unexpected error: {e}")
@@ -462,7 +472,9 @@ async def verify_connection(
             # ClientError covers all aiohttp requests issues
             log.exception(f"Client error: {str(e)}")
             # Handle aiohttp-specific connection issues, timeout etc.
-            raise HTTPException(status_code=500, detail="IQ: Server Connection Error")
+            raise HTTPException(
+                status_code=500, detail="Open WebUI: Server Connection Error"
+            )
         except Exception as e:
             log.exception(f"Unexpected error: {e}")
             # Generic error handler in case parsing JSON or other steps fail
@@ -580,7 +592,7 @@ async def generate_chat_completion(
     headers["Content-Type"] = "application/json"
     if "openrouter.ai" in app.state.config.OPENAI_API_BASE_URLS[idx]:
         headers["HTTP-Referer"] = "https://openwebui.com/"
-        headers["X-Title"] = "IQ"
+        headers["X-Title"] = "Open WebUI"
     if ENABLE_FORWARD_USER_INFO_HEADERS:
         headers["X-OpenWebUI-User-Name"] = user.name
         headers["X-OpenWebUI-User-Id"] = user.id
@@ -625,7 +637,7 @@ async def generate_chat_completion(
             return response
     except Exception as e:
         log.exception(e)
-        error_detail = "IQ: Server Connection Error"
+        error_detail = "Open WebUI: Server Connection Error"
         if isinstance(response, dict):
             if "error" in response:
                 error_detail = f"{response['error']['message'] if 'message' in response['error'] else response['error']}"
@@ -691,7 +703,7 @@ async def proxy(path: str, request: Request, user=Depends(get_verified_user)):
             return response_data
     except Exception as e:
         log.exception(e)
-        error_detail = "IQ: Server Connection Error"
+        error_detail = "Open WebUI: Server Connection Error"
         if r is not None:
             try:
                 res = await r.json()

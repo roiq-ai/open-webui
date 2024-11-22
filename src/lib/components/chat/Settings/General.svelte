@@ -205,7 +205,7 @@
 						href="https://github.com/open-webui/open-webui/blob/main/docs/CONTRIBUTING.md#-translations-and-internationalization"
 						target="_blank"
 					>
-						Help us translate IQ!
+						Help us translate Open WebUI!
 					</a>
 				</div>
 			{/if}

@@ -23,7 +23,7 @@ services:
 
   open-webui-email:
 
-    image: 875668830489.dkr.ecr.us-east-1.amazonaws.com/roiqai-service:1.3.0
+    image: 875668830489.dkr.ecr.us-east-1.amazonaws.com/roiqai-service:1.4.0
     ports:
       - "3002:8080"
     volumes:

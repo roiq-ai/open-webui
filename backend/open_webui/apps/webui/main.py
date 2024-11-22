@@ -270,7 +270,7 @@ async def get_pipe_models():
                 log.exception(e)
                 sub_pipes = []
 
-            print(sub_pipes)
+
 
             for p in sub_pipes:
                 sub_pipe_id = f'{pipe.id}.{p["id"]}'
@@ -346,7 +346,6 @@ def get_pipe_id(form_data: dict) -> str:
     pipe_id = form_data["model"]
     if "." in pipe_id:
         pipe_id, _ = pipe_id.split(".", 1)
-    print(pipe_id)
     return pipe_id
 
 

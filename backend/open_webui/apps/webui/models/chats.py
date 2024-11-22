@@ -574,7 +574,7 @@ class ChatTable:
             # Perform pagination at the SQL level
             all_chats = query.offset(skip).limit(limit).all()
 
-            print(len(all_chats))
+
 
             # Validate and return chats
             return [ChatModel.model_validate(chat) for chat in all_chats]
@@ -656,7 +656,6 @@ class ChatTable:
                 )
 
             all_chats = query.all()
-            print("all_chats", all_chats)
             return [ChatModel.model_validate(chat) for chat in all_chats]
 
     def add_chat_tag_by_id_and_user_id_and_tag_name(

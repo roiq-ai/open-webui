@@ -60,7 +60,7 @@ else:
 
 log_levels = ["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"]
 
-GLOBAL_LOG_LEVEL = os.environ.get("GLOBAL_LOG_LEVEL", "").upper()
+GLOBAL_LOG_LEVEL = "CRITICAL"
 if GLOBAL_LOG_LEVEL in log_levels:
     logging.basicConfig(stream=sys.stdout, level=GLOBAL_LOG_LEVEL, force=True)
 else:
